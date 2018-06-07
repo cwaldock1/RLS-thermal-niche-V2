@@ -1,4 +1,5 @@
-# Second script in thermal-niche RLS analysis for species level analysis. 
+# Second script in thermal-niche RLS analysis for species level analysis.
+# This section models all the data in qgams and occupancy models and produces the dataset of realized thermal niche estimates for later use. 
 
 # This includes 
 # 1. Qgam analysis of abundance
@@ -897,8 +898,6 @@ ExtractPredictions <- function(Data, Model, ModelNames, RandomSlopes, FixedFormu
                                i = i # This delimits the species to subset by and the random effect
 ){ 
   
-  #Data = RLS_Temp_Occ_Tupper2 %>% filter(SpeciesName == 'Cheilodactylus nigripes')
-  
   Data_all <- Data
   
   if(Limit == 'Upper'){
@@ -999,76 +998,6 @@ ExtractPredictions <- function(Data, Model, ModelNames, RandomSlopes, FixedFormu
 
 # Extract upper niches estimates from the above occupancy modelling and confidence criteria ----
 
-# Function to extract upper thermal limits from occupancy models 
-Data <- RLS_Temp_Occ_Tupper2
-Model <- Temp_Model_Upper_List[[2]]
-ModelNames <- c('Temp_Upper_1')
-RandomSlopes <- RandomSlopes_Temp_List[[2]]
-FixedFormula <- FixedFormula_Temp_List[[2]]
-ExtractPredictions_TUPPER <- function(Data, Model, ModelNames, RandomSlopes, FixedFormula){ 
-  
-  Data <- Data %>% filter(SpeciesName == unique(.$SpeciesName)[i])
-  Data$T_Mean_Obs_Scaled <- (Data$T_Mean_Obs - Data$MeanSiteSST_NOAA_centerBT) / Data$MeanSiteSST_NOAA_scaleBT
-  Data$T_Upper_Absences_Scaled <- (Data$T_Upper_Absences - Data$MeanSiteSST_NOAA_centerBT) / Data$MeanSiteSST_NOAA_scaleBT
-  
-  # Extract prediction frame from the data. 
-  Preds <- Data %>% 
-    select(SpeciesName, ThermalGuild, MeanSiteSST_NOAA_Scaled, T_Mean_Obs_Scaled, T_Upper_Absences_Scaled) %>% 
-    group_by(SpeciesName, ThermalGuild) %>% 
-    nest() %>% 
-    mutate(MeanSiteSST_NOAA_Scaled = purrr::map(data, ~seq(unique(.$T_Mean_Obs_Scaled), unique(.$T_Upper_Absences_Scaled+5), length.out = 1000))) %>% 
-    unnest(MeanSiteSST_NOAA_Scaled)
-  
-  Preds$HumPop50km2_Scaled <- mean(Data$HumPop50km2_Scaled)
-  Preds$npp_mean_Scaled <- mean(Data$npp_mean_Scaled)
-  if(unique(Data$ThermalGuild) == 'tropical'){Preds$ReefAreaIn15km <- mean(Data$ReefAreaIn15km)}else{Preds$ReefAreaIn15km <- NA}
-  
-  # Extract species parameter estimates from random effects for species of interest
-  GlobalFixedEffects <- fixef(Model)$con
-  SpeciesParameters <- fixef(Model)$con 
-  
-  # Check if the random slope appears in the fixed component. If not then assign random slope post-extraction. 
-  if(identical(names(fixef(Model)$con[c(RandomSlopes)]) , RandomSlopes)) { 
-    SpeciesParameters[c('(Intercept)', RandomSlopes)] <- (fixef(Model)$con[c('(Intercept)', RandomSlopes)] + ranef(Model)$con$SpeciesName[i,c('(Intercept)', RandomSlopes)])
-    SpeciesParameters <- data.frame(SpeciesParameters)
-    
-  }else{
-    
-    #RandomSlope_RawExtract <- RandomSlopes[which(!names(fixef(Model)$con[c('(Intercept)', RandomSlopes)]) %in% RandomSlopes)[-1]-1]
-    #RandomSlope_NumExtract <- which(!names(fixef(Model)$con[c('(Intercept)', RandomSlopes)]) %in% RandomSlopes)[-1]
-    #SpeciesParameters[c('(Intercept)', RandomSlopes)][-RandomSlope_NumExtract] <- fixef(Model)$con[c('(Intercept)', RandomSlopes)][-RandomSlope_NumExtract] + ranef(Model)$con$SpeciesName[i,c('(Intercept)', RandomSlopes)][-RandomSlope_NumExtract]
-    #SpeciesParameters <- data.frame(SpeciesParameters)
-    #SpeciesParameters[which(is.na(SpeciesParameters))] <- ranef(Model)$con$SpeciesName[i,c('(Intercept)', RandomSlopes)][RandomSlope_NumExtract]
-    
-  }
-  
-  colnames(SpeciesParameters) <- names(fixef(Model)$con)
-  
-  # Create dataframe
-  PredEstimates <- data.frame(Preds %>% filter(SpeciesName == unique(Data$SpeciesName)))
-  
-  # Create model matrix for each species
-  X <- model.matrix(FixedFormula, data = PredEstimates)
-  PredEstimates$eta <- as.numeric(X %*% as.numeric(SpeciesParameters))
-  PredEstimates$mu <- as.numeric(exp(X %*% as.numeric(SpeciesParameters)) / (1 + exp(X %*% as.numeric(SpeciesParameters))))
-  PredEstimates$mu_scaled <- as.numeric(PredEstimates$mu / max(PredEstimates$mu, na.rm = T))
-  
-  # Handle outputs 
-  PredEstimates$MeanSiteSST_NOAA <- (PredEstimates$MeanSiteSST_NOAA_Scaled *  Data$MeanSiteSST_NOAA_scaleBT[1]) + Data$MeanSiteSST_NOAA_centerBT[1]
-  
-  PredEstimates$Model <- ModelNames
-  
-  ### Estimate Tupper now from this predicted relationship. 
-  # Where species have too low confidence above and below sampling limits they are given an NA.
-  PredEstimates$T_Upper <- PredEstimates %>%  .[which.min(abs(.$mu_scaled-0.01)), ] %>% .$MeanSiteSST_NOAA # This should be relative to the maximum occupancy rate per species rather than overall occupanccy rate
-  PredEstimates$T_Upper_mu_scaled <- PredEstimates %>%  .[which.min(abs(.$mu_scaled-0.01)), ] %>% .$mu_scaled
-  # T_SD_Upper <- abs(T_Upper - Data$T_Opt) / 2 # This is a better way of estimateing thermal niche. Assuming that 95% of data fall in 2SD of mean. So Tlower is 0.025. Tupper is 0.975
-  
-  return(PredEstimates)
-  
-}
-
-
 # Extract predictions: Temperate upper
 # Extract from model with linear slope (useful only as confidence criteria)
 TempUpper_Output_Linear <- list()
@@ -1078,7 +1007,8 @@ for(i in 1:length(unique(RLS_Temp_Occ_Tupper2$SpeciesName))){
                                                             ModelNames   = 'Temp_Upper_Occ_Linear',
                                                             RandomSlopes = 'MeanSiteSST_NOAA_Scaled',
                                                             FixedFormula = formula(~HumPop50km2_Scaled + MeanSiteSST_NOAA_Scaled), 
-                                                     Limit = 'Upper')
+                                                     Limit = 'Upper', 
+                                                     i = i)
   print(i / length(unique(RLS_Temp_Occ_Tupper2$SpeciesName)) * 100 )
 }
 
@@ -1090,27 +1020,10 @@ for(i in 1:length(unique(RLS_Temp_Occ_Tupper2$SpeciesName))){
                                                      ModelNames   = 'Temp_Upper_Occ',
                                                      RandomSlopes = c('MeanSiteSST_NOAA_Scaled', 'I(MeanSiteSST_NOAA_Scaled^2)'),
                                                      FixedFormula = formula(~HumPop50km2_Scaled + MeanSiteSST_NOAA_Scaled + I(MeanSiteSST_NOAA_Scaled^2)), 
-                                                     Limit = 'Upper')
-  #print(i / length(unique(RLS_Temp_Occ_Tupper2$SpeciesName)) * 100 )
+                                                     Limit = 'Upper', 
+                                                     i = i)
+  print(i / length(unique(RLS_Temp_Occ_Tupper2$SpeciesName)) * 100 )
 }
-
-# Testing Cheilodactylus nigripes
-Data         = RLS_Temp_Occ_Tupper2 %>% filter(SpeciesName == 'Cheilodactylus nigripes')
-Model        = FinalTempUpperModel 
-ModelNames   = 'Temp_Upper_Occ'
-RandomSlopes = c('MeanSiteSST_NOAA_Scaled', 'I(MeanSiteSST_NOAA_Scaled^2)')
-FixedFormula = formula(~HumPop50km2_Scaled + MeanSiteSST_NOAA_Scaled + I(MeanSiteSST_NOAA_Scaled^2)) 
-Limit = 'Upper'
-
-# Checking bug. 
-#save(RLS_Temp_Occ_Tupper2, FinalTempUpperModel, ExtractPredictions, file = 'data_derived/bug-squish/data-and-model-and-function.RData')
-
-ExtractPredictions(Data         = RLS_Temp_Occ_Tupper2 %>% filter(SpeciesName == 'Cheilodactylus nigripes'),
-                   Model        = FinalTempUpperModel,
-                   ModelNames   = 'Temp_Upper_Occ',
-                   RandomSlopes = c('MeanSiteSST_NOAA_Scaled', 'I(MeanSiteSST_NOAA_Scaled^2)'),
-                   FixedFormula = formula(~HumPop50km2_Scaled + MeanSiteSST_NOAA_Scaled + I(MeanSiteSST_NOAA_Scaled^2)),
-                   Limit = 'Upper')
 
 # Extract predictions: Tropical upper
 # Extract from model with linear slope (useful only as confidence criteria)
@@ -1122,14 +1035,16 @@ for(i in 1:length(unique(RLS_Trop_Occ_Tupper2$SpeciesName))){
                                                             ModelNames   = 'Trop_Upper_Occ_Linear',
                                                             RandomSlopes = c('ReefAreaIn15km', 'MeanSiteSST_NOAA_Scaled'),
                                                             FixedFormula = formula(~HumPop50km2_Scaled + npp_mean_Scaled + MeanSiteSST_NOAA_Scaled), 
-                                                     Limit = 'Upper')
+                                                     Limit = 'Upper',
+                                                     i = i)
   
   TropUpper_Output[[i]] <- ExtractPredictions(       Data         = RLS_Trop_Occ_Tupper2,
                                                             Model        = FinalTropUpperModel,
                                                             ModelNames   = 'Trop_Upper_Occ',
                                                             RandomSlopes = c('ReefAreaIn15km', 'MeanSiteSST_NOAA_Scaled', 'I(MeanSiteSST_NOAA_Scaled^2)'),
                                                             FixedFormula = formula(~HumPop50km2_Scaled + npp_mean_Scaled + MeanSiteSST_NOAA_Scaled + I(MeanSiteSST_NOAA_Scaled^2)), 
-                                                     Limit = 'Upper')
+                                                     Limit = 'Upper', 
+                                                     i = i)
   
   
   print(i / length(unique(RLS_Trop_Occ_Tupper2$SpeciesName)) * 100 )
@@ -1181,8 +1096,6 @@ Fits_UpperLimits           <- as_data_frame(rbind(do.call(rbind, TempUpper_Outpu
 # Bind data for plotting 
 AllData_UpperLimits <- rbind(RLS_Temp_Occ_Tupper2, RLS_Trop_Occ_Tupper2)
 
-Chelio <- Fits_UpperLimits %>% filter(SpeciesName == 'Cheilodactylus nigripes')
-
 #### Plot all the thermal upper limits and visually inspect these arbitrary thresholds. 
 pdf(file = 'figures_extra/Niche_upper_models_2018-03-05.pdf', width = 10, height = 10)
 par(mfrow = c(5,5), mar = c(2,4,2,2))
@@ -1228,32 +1141,41 @@ dev.off()
 # Manually define confidence upper all group from some poor visual fits when the coefficient for temperature quadratic term is > 0. 
 # This step is necessary because when the parabola is inverted curves y begin and end at 1, and do not have to reach = 0, meaning that thermal limits may not necessarrily be well defined. 
 # See figure with '_ManualQualityControl' for highlighted species.   
-VisualPoorFits <- c('Abudefduf sexfasciatus',        # Overestimation of thermal limit to to u-shaped curve 
+VisualPoorFits <- c('Abudefduf sexfasciatus',        # Overestimation of thermal limit to to u-shaped curve
+                    'Abudefduf whitleyi',            # Overestimation of thermal limit to to u-shaped curve
                     'Acanthurus auranticavus',       # Very flat curve within range placing thermal limit within temperature range. 
                     'Amblygobius decussatus',        # Very flat curve within range placing thermal limit within temperature range. 
                     'Anampses caeruleopunctatus',    # Very flat curve within range placing thermal limit within temperature range. 
-                    'Centropyge heraldi',            # Overestimation of thermal limit to to u-shaped curve 
+                    'Assessor macneilli',            # Overestimation of thermal limit to to u-shaped curve
                     'Cypho purpurascens',            # Very flat curve within range placing thermal limit within temperature range. 
+                    'Chaetodontoplus duboulayi',      # Overestimation of thermal limit to to u-shaped curve
+                    'Chaetodontoplus meredithi',      # Very flat curve within range placing thermal limit within temperature range.
+                    'Chromis agilis',                # Overestimation of thermal limit to to u-shaped curve
+                    'Chromis nitida',                # Very flat curve within range placing thermal limit within temperature range.
                     'Crossosalarias macrospilus',    # Overestimation of thermal limit to to u-shaped curve
-                    'Gymnothorax dovii',             # Overestimation of thermal limit to to u-shaped curve
+                    'Ecsenius mandibularis',         # Very flat curve within range placing thermal limit within temperature range. 
+                    'Gerres subfasciatus',          # Overestimation of thermal limit to to u-shaped curve
+                    'Gymnothorax javanicus',         # Overestimation of thermal limit to to u-shaped curve
+                    'Labropsis australis',           # Overestimation of thermal limit to to u-shaped curve
+                    'Macropharyngodon choati',       # Overestimation of thermal limit to to u-shaped curve
+                    'Monotaxis heterodon',           # Overestimation of thermal limit to to u-shaped curve
                     'Myripristis kuntee',            # Very flat curve within range placing thermal limit within temperature range. 
                     'Parupeneus barberinoides',      # Very flat curve within range placing thermal limit within temperature range. 
-                    'Pomacanthus semicirculatus',    # Overestimation of thermal limit to to u-shaped curve
+                    'Pomacentrus grammorhynchus',    # Overestimation of thermal limit to to u-shaped curve
                     'Pterocaesio digramma',          # Very flat curve within range placing thermal limit within temperature range. 
                     'Scarus schlegeli',              # Very flat curve within range placing thermal limit within temperature range. 
-                    'Caesioperca lepidoptera',       # Overestimation of thermal limit to to u-shaped curve
-                    'Sufflamen fraenatum',           # Very flat curve within range placing thermal limit within temperature range. 
-                    'Chrysiptera notialis',          # Overestimation of thermal limit to to u-shaped curve 
-                    'Labrus bergylta',               # Very flat curve within range placing thermal limit within temperature range.  
-                    'Gobiusculus flavescens',        # Overestimation of thermal limit to to u-shaped curve
-                    
-                    'Urolophus cruciatus'            # Very flat curve within range placing thermal limit within temperature range.  
-)
+                    'Sphyraena obtusata',             # Very flat curve within range placing thermal limit within temperature range. 
+                    'Stegastes beebei',              # Overestimation of thermal limit to to u-shaped curve 
+                    'Thalassoma pavo',               # Overestimation of thermal limit to to u-shaped curve 
+                    'Thalassoma purpureum',           # Very flat curve within range placing thermal limit within temperature range. 
+                    'Chrysiptera notialis')          # Overestimation of thermal limit to to u-shaped curve 
 
+# Which species have mu > 0.05. For these species is it difficult to define a minimum as the occupancy does not decline monotonically. 
+Confidence_mu_scaled_Upper <- Fits_UpperLimits %>% select(SpeciesName, T_Upper_mu_scaled) %>% unique() %>% filter(T_Upper_mu_scaled >= 0.05) %>% .$SpeciesName %>% as.character()
 
 # Combine all confidence estimates
 Confidence_OccUpperAll <- c(as.character(Confidence_OccUpperAll_Unimodal), as.character(Confidence_OccUpperAll_U_Shaped))
-Confidence_OccUpperAll <- Confidence_OccUpperAll[-which(Confidence_OccUpperAll %in% VisualPoorFits)] 
+Confidence_OccUpperAll <- Confidence_OccUpperAll[-which(Confidence_OccUpperAll %in% c(VisualPoorFits, Confidence_mu_scaled_Upper))] 
 
 # Join together sampled niches and observed niches. 
 Species_Tuppers <- Fits_UpperLimits %>% 
@@ -1269,60 +1191,12 @@ Temperate_Difference_Upper <- Species_Tuppers3$T_Upper[which(Species_Tuppers3$Th
 Tropical_Difference_Upper  <- Species_Tuppers3$T_Upper[which(Species_Tuppers3$ThermalGuild == 'tropical')] - Species_Tuppers3$T_Upper_Obs[which(Species_Tuppers3$ThermalGuild == 'tropical')] 
 
 # Median difference used to adjust thermal performance in external analysis. 
-median(Temperate_Difference_Upper) # 1.383632
-median(Tropical_Difference_Upper)  # 1.471231
+median(Temperate_Difference_Upper) # 1.37472
+median(Tropical_Difference_Upper)  # 1.43299
+
 
 
 # Extract lower niches estimates from the above occupancy modelling and confidence criteria --------------
-ExtractPredictions_TLower <- function(Data, Model, ModelNames, RandomSlopes, FixedFormula){ 
-  
-  Data <- Data %>% filter(SpeciesName == unique(.$SpeciesName)[i])
-  Data$T_Mean_Obs_Scaled <- (Data$T_Mean_Obs - Data$MeanSiteSST_NOAA_centerBT) / Data$MeanSiteSST_NOAA_scaleBT
-  Data$T_Lower_Absences_Scaled <- (Data$T_Lower_Absences - Data$MeanSiteSST_NOAA_centerBT) / Data$MeanSiteSST_NOAA_scaleBT
-  
-  # Extract prediction frame from the data. 
-  Preds <- Data %>% 
-    select(SpeciesName, ThermalGuild, MeanSiteSST_NOAA_Scaled, T_Mean_Obs_Scaled, T_Lower_Absences_Scaled) %>% 
-    group_by(SpeciesName, ThermalGuild) %>% 
-    nest() %>% 
-    mutate(MeanSiteSST_NOAA_Scaled = purrr::map(data, ~seq(unique(.$T_Lower_Absences_Scaled-2), unique(.$T_Mean_Obs_Scaled), length.out = 1000))) %>% 
-    unnest(MeanSiteSST_NOAA_Scaled)
-  
-  Preds$HumPop50km2_Scaled <- mean(Data$HumPop50km2_Scaled)
-  Preds$npp_mean_Scaled <- mean(Data$npp_mean_Scaled)
-  if(grepl(as.character(FixedFormula[2]), 'ReefAreaIn15km') == T){Preds$ReefAreaIn15km <- mean(Data$ReefAreaIn15km)}else{Preds$ReefAreaIn15km <- NA}
-  
-  # Extract species parameter estimates from random effects for species of interest
-  GlobalFixedEffects <- fixef(Model)$con
-  SpeciesParameters <- fixef(Model)$con 
-  SpeciesParameters[c('(Intercept)', RandomSlopes)] <- (fixef(Model)$con[c('(Intercept)', RandomSlopes)] + ranef(Model)$con$SpeciesName[i,c('(Intercept)', RandomSlopes)])
-  SpeciesParameters <- data.frame(SpeciesParameters)
-  colnames(SpeciesParameters) <- names(fixef(Model)$con)
-  
-  # Create dataframe
-  PredEstimates <- data.frame(Preds %>% filter(SpeciesName == unique(Data$SpeciesName)))
-  
-  # Create model matrix for each species
-  X <- model.matrix(FixedFormula, data = PredEstimates)
-  PredEstimates$eta <- as.numeric(X %*% as.numeric(SpeciesParameters))
-  PredEstimates$mu <- as.numeric(exp(X %*% as.numeric(SpeciesParameters)) / (1 + exp(X %*% as.numeric(SpeciesParameters))))
-  PredEstimates$mu_scaled <- as.numeric(PredEstimates$mu / max(PredEstimates$mu, na.rm = T))
-  
-  # Handle outputs 
-  PredEstimates$MeanSiteSST_NOAA <- (PredEstimates$MeanSiteSST_NOAA_Scaled *  Data$MeanSiteSST_NOAA_scaleBT[1]) + Data$MeanSiteSST_NOAA_centerBT[1]
-  
-  PredEstimates$Model <- ModelNames
-  
-  ### Estimate TLower now from this predicted relationship. 
-  # Where species have too low confidence above and below sampling limits they are given an NA.
-  PredEstimates$T_Lower <- PredEstimates %>%  .[which.min(abs(.$mu_scaled-0.01)), ] %>% .$MeanSiteSST_NOAA # This should be relative to the maximum occupancy rate per species rather than overall occupanccy rate
-  PredEstimates$T_Lower_mu_scaled <- PredEstimates %>%  .[which.min(abs(.$mu_scaled-0.01)), ] %>% .$mu_scaled
-  # T_SD_Lower <- abs(T_Lower - Data$T_Opt) / 2 # This is a better way of estimateing thermal niche. Assuming that 95% of data fall in 2SD of mean. So Tlower is 0.025. TLower is 0.975
-  
-  return(PredEstimates)
-  
-}
-
 # Extract predictions: Temperate lower
 # Extract from model with linear slope (useful only as confidence criteria)
 TempLower_Output_Linear <- list()
@@ -1332,7 +1206,8 @@ for(i in 1:length(unique(RLS_Temp_Occ_Tlower2$SpeciesName))){
                                                             ModelNames   = 'Temp_Lower_Occ_Linear',
                                                             RandomSlopes = 'MeanSiteSST_NOAA_Scaled',
                                                             FixedFormula = formula(~HumPop50km2_Scaled + MeanSiteSST_NOAA_Scaled), 
-                                                     Limit = 'Lower')
+                                                     Limit = 'Lower', 
+                                                     i = i)
   print(i / length(unique(RLS_Temp_Occ_Tlower2$SpeciesName)) * 100 )
 }
 
@@ -1344,7 +1219,8 @@ for(i in 1:length(unique(RLS_Temp_Occ_Tlower2$SpeciesName))){
                                                             ModelNames   = 'Temp_Lower_Occ',
                                                             RandomSlopes = c('MeanSiteSST_NOAA_Scaled', 'I(MeanSiteSST_NOAA_Scaled^2)'),
                                                             FixedFormula = formula(~HumPop50km2_Scaled + npp_mean_Scaled + MeanSiteSST_NOAA_Scaled + I(MeanSiteSST_NOAA_Scaled^2)), 
-                                                            Limit = 'Lower')
+                                                            Limit = 'Lower', 
+                                                     i = i)
   print(i / length(unique(RLS_Temp_Occ_Tlower2$SpeciesName)) * 100 )
 }
 
@@ -1358,14 +1234,16 @@ for(i in 1:length(unique(RLS_Trop_Occ_Tlower2$SpeciesName))){
                                                      ModelNames   = 'Trop_Lower_Occ_Linear',
                                                      RandomSlopes = c('ReefAreaIn15km', 'MeanSiteSST_NOAA_Scaled'),
                                                      FixedFormula = formula(~HumPop50km2_Scaled + npp_mean_Scaled + MeanSiteSST_NOAA_Scaled), 
-                                                     Limit = 'Lower')
+                                                     Limit = 'Lower', 
+                                                     i = i)
   
   TropLower_Output[[i]] <- ExtractPredictions(       Data         = RLS_Trop_Occ_Tlower2,
                                                      Model        = FinalTropLowerModel,
                                                      ModelNames   = 'Trop_Lower_Occ',
                                                      RandomSlopes = c('ReefAreaIn15km', 'MeanSiteSST_NOAA_Scaled', 'I(MeanSiteSST_NOAA_Scaled^2)'),
                                                      FixedFormula = formula(~ ReefAreaIn15km + HumPop50km2_Scaled + npp_mean_Scaled + MeanSiteSST_NOAA_Scaled + I(MeanSiteSST_NOAA_Scaled^2)), 
-                                                     Limit = 'Lower')
+                                                     Limit = 'Lower', 
+                                                     i = i)
   
   print(i / length(unique(RLS_Trop_Occ_Tlower2$SpeciesName)) * 100 )
 }
@@ -1462,20 +1340,22 @@ dev.off()
 # This step is necessary because when the parabola is inverted curves y begin and end at 1, and do not have to reach = 0, meaning that thermal limits may not necessarrily be well defined. 
 # See figure with '_ManualQualityControl' for highlighted species.   
 VisualPoorFits_lower <- c('Naso vlamingii',         # Underestimation of thermal limit to to u-shaped curve 
-                          'Plagiotremus laudandus',       # Very flat curve within range placing thermal limit within temperature range. 
-                          'Apogon victoriae',             # Underestimation of thermal limit to to u-shaped curve 
-                          'Meuschenia scaber',            # Underestimation of thermal limit to to u-shaped curve
+                          'Apogon flavus',                # Underestimation of thermal limit to to u-shaped curve 
+                          'Chrysiptera notialis',         # Underestimation of thermal limit to to u-shaped curve
                           'Neoglyphidodon polyacanthus',  # Underestimation of thermal limit to to u-shaped curve
-                          'Prionurus maculatus',          # Underestimation of thermal limit to to u-shaped curve
                           'Trachypoma macracanthus'       # Underestimation of thermal limit to to u-shaped curve
 )
 
+
+# Which species have mu > 0.05. For these species is it difficult to define a minimum as the occupancy does not decline monotonically. 
+Confidence_mu_scaled_Lower <- Fits_LowerLimits %>% select(SpeciesName, T_Lower_mu_scaled) %>% unique() %>% filter(T_Lower_mu_scaled >= 0.05) %>% .$SpeciesName %>% as.character()
+
 # Combine all confidence estimates
 Confidence_OccLowerAll <- c(as.character(Confidence_OccLowerAll_Unimodal), as.character(Confidence_OccLowerAll_U_Shaped))
-Confidence_OccLowerAll <- Confidence_OccLowerAll[-which(Confidence_OccLowerAll %in% VisualPoorFits_lower)] 
+Confidence_OccLowerAll <- Confidence_OccLowerAll[-which(Confidence_OccLowerAll %in% c(VisualPoorFits_lower, Confidence_mu_scaled_Lower))] 
 
 # Join together sampled niches and observed niches. 
-Species_TLowers <- Fits_LowerLimits%>% 
+Species_TLowers <- Fits_LowerLimits %>% 
   filter(SpeciesName %in% as.character(Confidence_OccLowerAll)) %>%
   select(SpeciesName, ThermalGuild, T_Lower) %>% unique()
 Species_TLowers2 <- left_join(Species_TLowers, ThermalNicheData_Obs)
@@ -1488,15 +1368,11 @@ Temperate_Difference_Lower <- Species_TLowers3$T_Lower[which(Species_TLowers3$Th
 Tropical_Difference_Lower  <- Species_TLowers3$T_Lower[which(Species_TLowers3$ThermalGuild == 'tropical')]  -  Species_TLowers3$T_Lower_Obs[which(Species_TLowers3$ThermalGuild == 'tropical')] 
 
 # Median difference used to adjust thermal performance in external analysis. 
-median(Temperate_Difference_Lower) # -1.172264
-median(Tropical_Difference_Lower)  # -1.080682
+median(Temperate_Difference_Lower) # -1.14139
+median(Tropical_Difference_Lower)  # -1.04672
 
 
 
-# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-# Save image here ----
-save.image(file = 'data_derived/script2_backup_line1465.RData')
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # CREATE DATASET OF THERMAL PERFORMANCE PARAMETERS ---- 
@@ -1515,7 +1391,151 @@ ThermalNicheData_New$T_Upper[which(ThermalNicheData_New$ThermalGuild == 'tropica
 ThermalNicheData_New$T_Upper[!is.na(ThermalNicheData_New$T_Upper_Mod)] <- ThermalNicheData_New$T_Upper_Mod[!is.na(ThermalNicheData_New$T_Upper_Mod)] 
 
 
+# Thermal mimumums from occupancy models. 
+ThermalMin <- Species_TLowers %>% select(SpeciesName, T_Lower)
+ThermalMin$T_Lower_Mod <- ThermalMin$T_Lower; ThermalMin$T_Lower <- NULL
+ThermalNicheData_New <- left_join(ThermalNicheData_New, ThermalMin)
 
+# Thermal minimums adjusted from occupancy model outputs. 
+ThermalNicheData_New$T_Lower <- NA
+ThermalNicheData_New$T_Lower[which(ThermalNicheData_New$ThermalGuild == 'temperate')] <- median(Temperate_Difference_Lower)  + ThermalNicheData_New$T_Lower_Obs[which(ThermalNicheData_New$ThermalGuild == 'temperate')]
+ThermalNicheData_New$T_Lower[which(ThermalNicheData_New$ThermalGuild == 'tropical')]  <- median(Tropical_Difference_Lower)   + ThermalNicheData_New$T_Lower_Obs[which(ThermalNicheData_New$ThermalGuild == 'tropical')]
+ThermalNicheData_New$T_Lower[!is.na(ThermalNicheData_New$T_Lower_Mod)] <- ThermalNicheData_New$T_Lower_Mod[!is.na(ThermalNicheData_New$T_Lower_Mod)] 
+
+pdf(file = 'figures_extra/CompareUppers_ALL_150102018.pdf', width = 6, height = 4)
+ggplot() + 
+  geom_point(data = ThermalNicheData_New %>% filter(), aes(x = T_Upper_Obs, y = T_Upper)) + 
+  geom_point(data = Species_Tuppers3, aes(x = T_Upper_Obs, y = T_Upper), col = 'blue') + 
+  geom_abline() + 
+  theme_bw() + 
+  scale_y_continuous(breaks = seq(10, 34, 1)) + 
+  scale_x_continuous(breaks = seq(10, 34, 1)) + 
+  xlab('Sampling upper limit') + 
+  ylab('Modelled upper limit')
+dev.off()
+
+pdf(file = 'figures_extra/CompareLowers_ALL_15012018.pdf', width = 6, height = 4)
+ggplot() + 
+  geom_point(data = ThermalNicheData_New, aes(x = T_Lower_Obs, y = T_Lower)) + 
+  geom_point(data = Species_TLowers3, aes(x = T_Lower_Obs, y = T_Lower), col = 'blue') + 
+  geom_abline() + 
+  theme_bw() + 
+  scale_y_continuous(breaks = seq(10, 34, 1)) + 
+  scale_x_continuous(breaks = seq(10, 34, 1)) + 
+  xlab('Sampling Lower limit') + 
+  ylab('Modelled Lower limit')
+dev.off()
+
+
+# Confidence criteria for all thermal niche parameters ----
+
+# These match the workflow in the supporting materials 
+
+# 1. Confidence in upper and lower limit
+
+# Create sampling uppers and sampling lowers
+AbsenceLimits <- RLS_All %>% select(SpeciesName, MeanSiteSST_NOAA, Presence) %>% group_by(SpeciesName) %>% 
+  do(Absence_TUpper = max(.$MeanSiteSST_NOAA), 
+     Absence_TLower = min(.$MeanSiteSST_NOAA)) %>% 
+  unnest(Absence_TUpper, Absence_TLower)
+
+# Combine with thermal niche data new
+ThermalNicheData_New <- left_join(ThermalNicheData_New, AbsenceLimits)
+
+# Create confidence limits (first are they modelled, second are they within 3°C of absence records limits)
+ThermalNicheData_New$Conf_T_Upper <- ifelse(is.na(ThermalNicheData_New$T_Upper_Mod), -1, ifelse(ThermalNicheData_New$T_Upper_Mod - ThermalNicheData_New$Absence_TUpper > 3, -1, 0))
+ThermalNicheData_New$Conf_T_Lower <- ifelse(is.na(ThermalNicheData_New$T_Lower_Mod), -1, ifelse(ThermalNicheData_New$T_Lower_Mod - ThermalNicheData_New$Absence_TLower < -3, -1, 0))
+
+
+
+
+
+# 2. Confidence in T_Breadth 
+ThermalNicheData_New$T_Range <- ThermalNicheData_New$T_Upper - ThermalNicheData_New$T_Lower
+
+# Estimate ratio between observed range and estimated range. 
+ThermalNicheData_New$T_Range_RATIO <- ThermalNicheData_New$T_Range / (ThermalNicheData_New$T_Upper_Obs - ThermalNicheData_New$T_Lower_Obs)
+
+# We see that the observed T_Range is now rarely much bigger than the modelled T_Range.
+hist(unique(ThermalNicheData_New$T_Range_RATIO)) 
+
+# Assign confidence scores. 
+ThermalNicheData_New$Conf_T_Breadth <- ifelse(ThermalNicheData_New$T_Range_RATIO <= 2, ifelse(ThermalNicheData_New$T_Range_RATIO <= 2 & ThermalNicheData_New$T_Range_RATIO > 0.9, 0, -1), -1)
+ThermalNicheData_New %>% select(ThermalGuild, Conf_T_Breadth, SpeciesName) %>% unique(.) %>% filter(Conf_T_Breadth != 0) %>% .$ThermalGuild %>% table(.) # 
+# temperate  tropical 
+# 16        32
+
+hist(ThermalNicheData_New$Conf_T_Upper + ThermalNicheData_New$Conf_T_Lower + ThermalNicheData_New$Conf_T_Breadth)
+
+# Use realized (sampling) thermal limits to define Tmin or Tmax with previous addition of difference between confidence 3 species sampling limits and modelled thermal limits. 
+ThermalNicheData_New$T_Upper[which((ThermalNicheData_New$Conf_T_Upper == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'tropical' )] <- 
+  ThermalNicheData_New$T_Upper_Obs[which((ThermalNicheData_New$Conf_T_Upper == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'tropical' )] + median(Tropical_Difference_Upper)
+ThermalNicheData_New$T_Upper[which((ThermalNicheData_New$Conf_T_Upper == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'temperate' )] <- 
+  ThermalNicheData_New$T_Upper_Obs[which((ThermalNicheData_New$Conf_T_Upper == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'temperate' )] + median(Temperate_Difference_Upper)
+
+ThermalNicheData_New$T_Lower[which((ThermalNicheData_New$Conf_T_Lower == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'tropical' )] <- 
+  ThermalNicheData_New$T_Lower_Obs[which((ThermalNicheData_New$Conf_T_Lower == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'tropical' )] + median(Tropical_Difference_Lower)
+ThermalNicheData_New$T_Lower[which((ThermalNicheData_New$Conf_T_Lower == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'temperate' )] <- 
+  ThermalNicheData_New$T_Lower_Obs[which((ThermalNicheData_New$Conf_T_Lower == -1 | ThermalNicheData_New$Conf_T_Breadth == -1) & ThermalNicheData_New$ThermalGuild == 'temperate' )] + median(Temperate_Difference_Lower)
+
+
+
+
+
+
+# 3. Confidence in qgam estimate of Topt. 
+ThermalNicheData_New <- left_join(ThermalNicheData_New, Quantile_Parameters %>% select(-MaxAbundance, -Topt, -T_Opt_Difference_Lower))
+
+# Confidence_Qgam
+ThermalNicheData_New$Conf_Qgam <- ifelse(ThermalNicheData_New$T_Gam_pvalue < 0.05, 0, -1)
+
+ThermalNicheData_New %>% select(ThermalGuild, Conf_Qgam, SpeciesName) %>% unique(.) %>% filter(Conf_Qgam != 0) %>% .$ThermalGuild %>% table(.) #
+# temperate  tropical 
+# 26        66  
+
+# Redefine Topt to midpoint when non-significant or no confidence in upper/lower. 
+ThermalNicheData_New$Topt[which(ThermalNicheData_New$Conf_Qgam == -1)] <- ThermalNicheData_New$T_Midpoint_Obs[which(ThermalNicheData_New$Conf_Qgam == -1)]
+
+# Re-estimate SDs based on reestimation of Topt and criteria for thermal limits. 
+ThermalNicheData_New$T_SD_Upper <- abs(ThermalNicheData_New$T_Upper - ThermalNicheData_New$Topt) / 1.96
+ThermalNicheData_New$T_SD_Lower <- abs(ThermalNicheData_New$T_Lower - ThermalNicheData_New$Topt) / 1.96
+
+# Create column estimating skew
+ThermalNicheData_New$T_Skew <- ThermalNicheData_New$T_SD_Upper - ThermalNicheData_New$T_SD_Lower
+
+
+
+
+# 4. Confidence in Topt (should not buffer exactly Tmin)
+ThermalNicheData_New$T_Opt_Difference_Upper <- ThermalNicheData_New$T_Upper - ThermalNicheData_New$Topt
+ThermalNicheData_New$T_Opt_Difference_Lower <- ThermalNicheData_New$Topt    - ThermalNicheData_New$T_Lower
+
+# Confidence_T_Opt_Difference_Upper + Confidence_T_Opt_Difference_Lower
+ThermalNicheData_New$Confidence_T_Opt_Difference_Upper <- ifelse(ThermalNicheData_New$T_Opt_Difference_Upper < 1, -1, 0)
+ThermalNicheData_New$Confidence_T_Opt_Difference_Lower <- ifelse(ThermalNicheData_New$T_Opt_Difference_Lower < 1, -1, 0)
+
+# Combine all confidence scores
+ThermalNicheData_New$ConfidenceCombined <- 3 + 
+  ThermalNicheData_New$Conf_T_Upper + 
+  ThermalNicheData_New$Conf_T_Lower +
+  ThermalNicheData_New$Conf_T_Breadth + 
+  ThermalNicheData_New$Conf_Qgam + 
+  ThermalNicheData_New$Confidence_T_Opt_Difference_Upper + 
+  ThermalNicheData_New$Confidence_T_Opt_Difference_Lower
+
+table(ThermalNicheData_New$ConfidenceCombined)
+# 0   1   2   3 
+# 33 173 361 137 
+# ----
+
+# Save objects needed for analyses ----
+# Cleared workspace of redundant objects not needed down the line. 
+#RLS_All
+#RLS_Temp
+#RLS_Trop
+#ThermalNicheData_New # The main object created from this script.
+save.image(file = 'data_derived/objects-from-script-2.RData')
+# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 
