@@ -412,6 +412,7 @@ RLS16 <- left_join(RLS15, MaximumAbundance)
 
 
 
+
 ### Apply stage 1 and 2 of confidence scoring pre-modelling phase ----
 
 # Remove hanging objects
@@ -427,10 +428,10 @@ print(object.size(x=lapply(ls(), get)), units="Mb") # 189.5Mb
 
 # 1. Confidence score based on number of observations. 
 RLS17 <- RLS16 %>% 
-  filter(AbundanceAdult40 > 0) %>% 
+  #filter(AbundanceAdult40 > 0) %>% 
   group_by(SpeciesName) %>% 
   nest() %>% 
-  mutate(N_Obs = purrr::map(data, ~nrow(.))) %>% 
+  mutate(N_Obs = purrr::map(data, ~sum(.$AbundanceAdult40 > 0))) %>% 
   unnest(N_Obs) %>% select(-data) %>% 
   left_join(RLS16, .)
 
@@ -513,7 +514,7 @@ RLS18_V2 <- RLS18_V2 %>%
   unnest(T_Upper_Absences, T_Lower_Absences, T_Mean_Absences) %>% ungroup() %>% select(-data) %>% left_join(RLS18_V2, ., by = 'SpeciesName')
 
 # 1650 species with low confidence scores. 
-RLS_LowConfidence_Species  <- unique(RLS18_V2[which(RLS18_V2$Confidence_NObs != 3 | RLS18_V2$Confidence_TRange_Obs != 3), 'SpeciesName'])
+RLS_LowConfidence_Species  <- unique(RLS18_V2[which(RLS18_V2$Confidence_NObs  != 3 | RLS18_V2$Confidence_TRange_Obs != 3), 'SpeciesName'])
 # 705 species with high confidence scores. 
 RLS_HighConfidence_Species <- unique(RLS18_V2[-which(RLS18_V2$Confidence_NObs != 3 | RLS18_V2$Confidence_TRange_Obs != 3), 'SpeciesName'])
 
@@ -521,14 +522,17 @@ RLS_HighConfidence_Species <- unique(RLS18_V2[-which(RLS18_V2$Confidence_NObs !=
 RLS_LowConfidence <- RLS18 %>% filter(SpeciesName %in% RLS_LowConfidence_Species$SpeciesName) # 616,949 observations
 saveRDS(RLS_LowConfidence, file = 'data_derived/RLS_LowConfidence_Species_2017-03-27.rds')
 
-RLS_19 <- RLS18_V2 %>% filter(SpeciesName %in% RLS_HighConfidence_Species$SpeciesName)           # 787,893 observations
+RLS_19 <- RLS18_V2 %>% filter(SpeciesName %in% RLS_HighConfidence_Species$SpeciesName)         # 787,893 observations
 
 
 nrow(RLS_19)
 RLS_19 %>% filter(AbundanceAdult40 != 0) %>% nrow
 length(unique(as.character(RLS_19$SiteCode)))
 length(unique(as.character(RLS_19$SpeciesName)))
+RLS_19 %>% do()
 
+Survey_no <- RLS %>% select(SiteCode, SurveyID) %>% unique() %>% left_join(RLS_19 %>% select(SiteCode) %>% unique(), .)
+Survey_no %>% group_by(SiteCode) %>% do(No_unique = length(unique(.$SurveyID))) %>% unnest(No_unique) %>% .$No_unique %>% mean()
 
 
 ### SAVE PROGRESS ----
