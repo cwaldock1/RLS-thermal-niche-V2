@@ -3,7 +3,7 @@
 # Author: Conor Waldock
 
 # The following raw data are required prior to running these scripts. 
-# RLS_GLOBAL_ABUND_BIOMASS_20170507.csv   # Acquiered from Antonia Cooper, UTAS, Taroon on 5th June 2017.  
+# RLS_GLOBAL_ABUND_BIOMASS_20170507.csv   # Acquired from Antonia Cooper, UTAS, Taroon on 5th June 2017.  
 # species_traits.csv                      # Acquired from Rick Stuart-Smith January 2017
 # SiteTemperatureValuesRLS_04_09_2017.csv # Produced on 4th September in external script. 
 # RLSWarmingRate_04_09_2017.csv           # Produced on 4th September in external script. 
