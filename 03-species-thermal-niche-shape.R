@@ -4,8 +4,7 @@
 # This includes 
 # 1. Tests of abundance declines at thermal niche edges (X^2 tests)
 # 2. Analysis of thermal niche skew vs. Topt (figure 2) 
-# 3. 
-# 4. 
+# 3. Supporting analyses with different data subsets (SOM)
 
 # Initiated 07/05/2018
 # Author: Conor Waldock
@@ -16,7 +15,6 @@ library(MuMIn)
 library(remef)
 library(stargazer)
 # ----------------------------------------------------------------------------
-
 
 # ANALYSIS OF SHAPE PATTERNS IN QGAMS AND 'ECOLOGICAL PERFORMANCE CURVES' ----
 # Extract model runs and predict curves from models ----
@@ -725,7 +723,9 @@ stargazer(TropicalModel_coral, TemperateModel_algae, GlobalModel_algae2, GlobalM
           column.labels = c('Tropical', 'Temperate', 'Global', 'Global < 26°C'))
 # ----------------------------------------------------------------------------
 
-
+# Save progress ----
+save.image('data_derived/script3_save-image.RData')
+# ----
 
 
 
