@@ -16,6 +16,8 @@ library(remef)
 library(stargazer)
 # ----------------------------------------------------------------------------
 
+
+
 # ANALYSIS OF SHAPE PATTERNS IN QGAMS AND 'ECOLOGICAL PERFORMANCE CURVES' ----
 # Extract model runs and predict curves from models ----
 
@@ -231,6 +233,8 @@ chisq.test(x = c(table(Category_50)))
 chisq.test(x = c(table(Category_50[Category_50 != 'No trend'])))
 
 # ----------------------------------------------------------------------------
+
+
 
 # ANALYSIS OF THERMAL NICHE SHAPE FOR EACH SPECIES. SKEW VS. TOPT ---- 
 # Define species habitat associations ----
@@ -491,6 +495,8 @@ dev.off()
 
 # ----------------------------------------------------------------------------
 
+
+
 # SUPPORTING ANALYSIS: ANALYSIS OF THERMAL NICHE SHAPE FOR EACH SPECIES. SKEW VS. TOPT ----
 # Model t-skew with global model (across all species conf = 3) TROPICAL ----
 
@@ -710,6 +716,8 @@ qqplot(y = resid(GlobalModel_algae_conservative2), x = rnorm(1000)) # Errors are
 
 # ----------------------------------------------------------------------------
 
+
+
 # TABLE FOR SOM: ----
 stargazer(TropicalModel_coral, TemperateModel_algae, GlobalModel_algae2, GlobalModel_algae_conservative2,
           type = 'html', out = 'figure_final/Tskew analysis outputs.htm', 
@@ -722,6 +730,83 @@ stargazer(TropicalModel_coral, TemperateModel_algae, GlobalModel_algae2, GlobalM
                                'Intercept'), 
           column.labels = c('Tropical', 'Temperate', 'Global', 'Global < 26°C'))
 # ----------------------------------------------------------------------------
+
+
+
+# SOM plot of thermal niche limits (results) ----
+# Testing variation in limits and edges ----
+
+par(mfrow = c(2,3))
+sd(ThermalNicheData_New_conf3_trop$Topt); hist(ThermalNicheData_New_conf3_trop$Topt, main = 'Tropical opt; sd = 1.53')
+sd(ThermalNicheData_New_conf3_trop$T_Lower); hist(ThermalNicheData_New_conf3_trop$T_Lower, main = 'Tropical lower; sd = 0.83')
+sd(ThermalNicheData_New_conf3_trop$T_Upper); hist(ThermalNicheData_New_conf3_trop$T_Upper, main = 'Tropical upper; sd = 0.71')
+
+sd(ThermalNicheData_New_conf3_temp$Topt); hist(ThermalNicheData_New_conf3_temp$Topt, main = 'Temperate opt; sd = 1.67')
+sd(ThermalNicheData_New_conf3_temp$T_Lower); hist(ThermalNicheData_New_conf3_temp$T_Lower, main = 'Temperate lower; sd = 1.25')
+sd(ThermalNicheData_New_conf3_temp$T_Upper); hist(ThermalNicheData_New_conf3_temp$T_Upper, main = 'Temperate upper; sd = 1.29')
+
+Hist_data <- ThermalNicheData_New_conf3 %>% filter(ConfidenceCombined == 3) %>% select(SpeciesName, ThermalGuild, Topt, T_Lower, T_Upper)
+
+Hist_data <- tidyr::gather(Hist_data, Parameter, Value, Topt:T_Upper)
+Hist_data$Parameter <- factor(Hist_data$Parameter, levels = c('T_Lower', 'Topt', 'T_Upper'), labels = c('Lower', 'Peak', 'Upper'))
+
+Hist_data <- Hist_data %>% group_by(ThermalGuild, Parameter) %>% nest() %>% mutate(SD = purrr::map(data, ~sd(.$Value))) %>% unnest(SD) %>% unnest(data)
+
+pdf('figure_final/SOM_histogram-of-thermal-niche-parameters.pdf', width = 6, height = 4)
+ggplot(data = Hist_data) + 
+  geom_histogram(aes(Value, fill = ThermalGuild)) + 
+  facet_wrap(ThermalGuild ~ Parameter) + 
+  geom_text(aes(x = mean(Value), y = 30, label = paste('SD = ', round(SD, 3), sep = ''))) + 
+  scale_fill_manual(values = c('dark blue', 'dark orange')) + 
+  theme_light() + 
+  theme(aspect.ratio = 1, legend.position = 'none')
+dev.off()
+# Variation in topt across taxonomic groups show with boxplots ----
+
+# Attach species' taxonomy
+ThermalNicheData_New_v2 <- left_join(ThermalNicheData_New, SpeciesTaxonomy)
+ThermalNicheData_New_v2$Family <- as.character(ThermalNicheData_New_v2$Family)
+
+# Extract families with > 20 individuals. 
+ThermalNicheData_New_v2 <- ThermalNicheData_New_v2 %>% filter(ConfidenceCombined == 3)
+Families <- rownames(table(ThermalNicheData_New_v2$Family)[which(table(ThermalNicheData_New_v2$Family)>5)])
+ThermalNicheData_New_v3 <- ThermalNicheData_New_v2 %>% filter(Family %in% Families)
+ThermalNicheData_New_v3_temp <- ThermalNicheData_New_v3 %>% filter(ThermalGuild == 'temperate')
+ThermalNicheData_New_v3_trop <- ThermalNicheData_New_v3 %>% filter(ThermalGuild == 'tropical')
+
+Median_Topts_Temp <- aggregate(Topt ~ Family, data = ThermalNicheData_New_v3_temp, FUN = median)
+names(Median_Topts_Temp)[2] <- 'Topt_Median'
+ThermalNicheData_New_v3_temp <- left_join(ThermalNicheData_New_v3_temp, Median_Topts_Temp)
+ThermalNicheData_New_v3_temp$Family <- factor(ThermalNicheData_New_v3_temp$Family, levels = unique(ThermalNicheData_New_v3_temp$Family[order(ThermalNicheData_New_v3_temp$Topt_Median)]))
+
+Median_Topts_Trop <- aggregate(Topt ~ Family, data = ThermalNicheData_New_v3_trop, FUN = median)
+names(Median_Topts_Trop)[2] <- 'Topt_Median'
+ThermalNicheData_New_v3_trop <- left_join(ThermalNicheData_New_v3_trop, Median_Topts_Trop)
+ThermalNicheData_New_v3_trop$Family <- factor(ThermalNicheData_New_v3_trop$Family, levels = unique(ThermalNicheData_New_v3_trop$Family[order(ThermalNicheData_New_v3_trop$Topt_Median)]))
+
+pdf('figure_final/SOM-Topt-across-taxonomy.pdf', width = 5, height = 5)
+gridExtra::grid.arrange(
+  
+  ggplot(ThermalNicheData_New_v3_trop) + 
+    geom_boxplot(aes(x = Family, y = Topt)) + 
+    facet_wrap(~ThermalGuild) +    
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title.x = element_blank(), aspect.ratio = 0.5) , 
+  
+  ggplot(ThermalNicheData_New_v3_temp) + 
+    geom_boxplot(aes(x = Family, y = Topt)) + 
+    facet_wrap(~ThermalGuild) + 
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title.x = element_blank(), aspect.ratio = 0.5), 
+  
+  nrow = 2)
+dev.off()
+
+# ----------------------------------------------------------------------------
+
+
+
+
 
 # Save progress ----
 save.image('data_derived/script3_save-image.RData')
