@@ -7,8 +7,7 @@
 #      b. P-abun
 #      b. P-occ
 # 2. The above models fit seperately for tropical and temperate species. 
-
-setwd('~/Documents/GitHub/RLS-thermal-niche-V2')
+# 3. The above models fit between 0.8-0.99 quantiles 
 
 # Load libraries and packages ---- 
 library(dplyr)
@@ -777,7 +776,10 @@ TempJAGS_Quantiles <- RunJAGSModels(modeldata = TempData_JAGS,
 
 save(TropJAGS_Quantiles_ABUN, TempJAGS_Quantiles_ABUN, TropJAGS_Quantiles, TempJAGS_Quantiles, file = 'data_derived/jagsmodels/JAGS_Quantiles_All.RData')
 
-# ----
+# ----------------------------------------------------------------------------
+
+
+
 
 # FIGURES ----
 # Net shape of realized thermal niche P-Occ-Abun ----
@@ -1048,7 +1050,3 @@ dev.off()
 
 
 # ----
-
-
-
-

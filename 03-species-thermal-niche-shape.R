@@ -14,8 +14,12 @@ library(lme4)
 library(MuMIn)
 library(remef)
 library(stargazer)
-# ----------------------------------------------------------------------------
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
 
+# ----------------------------------------------------------------------------
 
 
 
@@ -235,7 +239,6 @@ chisq.test(x = c(table(Category_50)))
 chisq.test(x = c(table(Category_50[Category_50 != 'No trend'])))
 
 # ----------------------------------------------------------------------------
-
 
 
 # ANALYSIS OF THERMAL NICHE SHAPE FOR EACH SPECIES. SKEW VS. TOPT ---- 
@@ -495,9 +498,120 @@ ggplot() +
   scale_x_continuous(breaks = seq(round(min(ModelGlobal_Pred$Topt)), round(max(ModelGlobal_Pred$Topt)), by = 2))
 dev.off()
 
+# Plot of distribution limits for 'FIGURE 2' ---- 
+pdf(file = 'figure_final/Topt_ThermalRange_Comparisons.pdf', width = 5, height = 5, useDingbats = F)
+ggplot() + 
+  
+  geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+                 aes(x = Topt, ymax = T_Upper, ymin = Topt), colour = 'darkblue', alpha = 1, size = 0.2) + 
+  geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+             aes(x = Topt, y = T_Upper), colour = 'darkblue', alpha = 1, size = 3, pch = 21, fill = 'gray90') + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+              aes(x = Topt, y = T_Upper), colour = 'black', alpha = 1, method = lm, lty = 2, se = F) + 
+  
+  geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'),  
+                 aes(x = Topt, ymax = T_Upper, ymin = Topt), colour = 'dark orange', alpha = 1, size = 0.2) + 
+  geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+             aes(x = Topt, y = T_Upper), colour = 'dark orange', alpha = 1, size = 3, pch = 21, fill = 'gray90') + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+              aes(x = Topt, y = T_Upper), colour = 'black', alpha = 1, method = lm, lty = 2, se = F) + 
+  
+  
+  geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+                 aes(x = Topt, ymin = T_Lower, ymax = Topt), colour = 'darkblue', alpha = 1, size = 0.2) + 
+  geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+             aes(x = Topt, y = T_Lower), colour = 'darkblue', alpha = 1, size = 3) + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+              aes(x = Topt, y = T_Lower), colour = 'black', alpha = 1, method = lm, se = F) + 
+  
+  geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'),  
+                 aes(x = Topt, ymin = T_Lower, ymax = Topt), colour = 'dark orange', alpha = 1, size = 0.2) + 
+  geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+             aes(x = Topt, y = T_Lower), colour = 'dark orange', alpha = 1, size = 3) + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+              aes(x = Topt, y = T_Lower), colour = 'black', alpha = 1, method = lm, se = F) + 
+  
+  geom_abline() + 
+  
+  theme_classic() + theme(text = element_text(size = 15), aspect.ratio = 0.6) + 
+  xlab(expression(T["opt"]))+ 
+  ylab('Realized niche edges (°C)') +
+  scale_x_continuous(breaks = seq(round(min(ModelGlobal_Pred$Topt)), round(max(ModelGlobal_Pred$Topt)), by = 2))
+dev.off()
+# Plot skew examples for 'FIGURE 2' ---- 
+GaussianFunction <- function(Topt = Topt, TUpper = TUpper, Tsd = Tsd, Tsd_2 = Tsd_2, MaxPerformance = MaxPerformance){
+  
+  Temp = seq(0, TUpper+5, length.out = 1000)
+  
+  Performance <- data.frame(Temp = Temp, 
+                            Performance = NA, 
+                            Topt = Topt, 
+                            TUpper = TUpper, 
+                            Tsd = Tsd, 
+                            Tsd_2 = Tsd_2,
+                            MaxPerformance = MaxPerformance)
+  
+  for(i in 1:length(Temp)){
+    if(Temp[i] <= Topt){
+      Performance$Performance[i] <- MaxPerformance*(exp(-(((Temp[i] - Topt) / (Tsd)))^2)) # Remove the 2* TSD as we estimate the whole SD 
+    }else{
+      # Performance$Performance[i] <- MaxPerformance*(1-((Temp[i] - Topt) / (Topt - if(Confidence_Upper != 0){Topt+UpperDiff}else{TUpper}))^2)
+      Performance$Performance[i] <- MaxPerformance*(exp(-(((Temp[i] - Topt) / (Tsd_2)))^2)) # Remove the 2* TSD as we estimate the whole SD 
+    }
+  }
+  
+  Performance$Performance[which(Performance$Performance < 0)] <- 0
+  
+  return(Performance)
+}
+
+# Apply thermal performance curve to all species
+
+# Vector of 4 species that are highlighted in figure 2
+Skew_Species <- c(Skew_TempSpp_min, Skew_TempSpp_max, Skew_TropSpp_min, Skew_TropSpp_max)
+
+# Estimate gaussian function for skew species. 
+Skew_TPCS <- ThermalNicheData_New %>% 
+  filter(SpeciesName%in%Skew_Species) %>%
+  group_by(SpeciesName) %>% 
+  do(ThermalPerformanceCurve = GaussianFunction(Topt = .$Topt,
+                                                TUpper = .$T_Upper,
+                                                Tsd = .$T_SD_Lower,
+                                                Tsd_2 = .$T_SD_Upper,
+                                                MaxPerformance = .$MaxAbundance)) %>% 
+  ungroup() %>% 
+  unnest(ThermalPerformanceCurve)
+
+Trop_MaxSkew       <- Skew_TPCS %>% filter(SpeciesName == Skew_TropSpp_min)
+Trop_MaxSkew_warm  <- Skew_TPCS %>% filter(SpeciesName == Skew_TropSpp_max)
+
+Temp_MinSkew       <- Skew_TPCS %>% filter(SpeciesName == Skew_TempSpp_max)
+Temp_MinSkew_cool  <- Skew_TPCS %>% filter(SpeciesName == Skew_TempSpp_min)
+
+Trop_MaxSkew_V2_label    <- Trop_MaxSkew[which(Trop_MaxSkew$Performance/Trop_MaxSkew$MaxPerformance == max(Trop_MaxSkew$Performance/Trop_MaxSkew$MaxPerformance)), ]
+Trop_MaxSkew_warm_label <- Trop_MaxSkew_warm[which(Trop_MaxSkew_warm$Performance/Trop_MaxSkew_warm$MaxPerformance == max(Trop_MaxSkew_warm$Performance/Trop_MaxSkew_warm$MaxPerformance)), ]
+Temp_MinSkew_V2_label    <- Temp_MinSkew[which(Temp_MinSkew$Performance/Temp_MinSkew$MaxPerformance == max(Temp_MinSkew$Performance/Temp_MinSkew$MaxPerformance)), ]
+Temp_MinSkew_cool_label <- Temp_MinSkew_cool[which(Temp_MinSkew_cool$Performance/Temp_MinSkew_cool$MaxPerformance == max(Temp_MinSkew_cool$Performance/Temp_MinSkew_cool$MaxPerformance)), ]
+
+Labels <- rbind(Trop_MaxSkew_V2_label, Trop_MaxSkew_warm_label, Temp_MinSkew_V2_label, Temp_MinSkew_cool_label)
+
+pdf('figure_final/Figure2-skew-examples.pdf', width = 5, height = 5)
+ggplot() + 
+  geom_ribbon(data = Trop_MaxSkew_warm, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.5, col = 'dark orange', fill = 'gray75') + 
+  geom_ribbon(data = Temp_MinSkew_cool, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.5, col = 'darkblue', fill = 'gray75') + 
+  geom_ribbon(data = Trop_MaxSkew, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, fill = 'dark orange') +
+  geom_ribbon(data = Temp_MinSkew, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, fill = 'darkblue') + 
+  geom_text(data = Labels[1:2,], aes(x = Topt, y=c(1.1, 1.05), label = SpeciesName), size = 2.5, colour = 'dark orange', fontface='italic') + 
+  geom_text(data = Labels[3:4,], aes(x = Topt, y=c(1.05, 1.1), label = SpeciesName), size = 2.5, colour = 'darkblue', fontface='italic') + 
+  xlim(12, 33) +
+  scale_y_continuous(breaks = c(0,0.2,.4,.6,.8,1)) + 
+  theme_classic() + 
+  ylab('Ecological performance') + 
+  xlab('Temperature') + 
+  theme(text = element_text(size = 15), aspect.ratio = 0.6)
+dev.off()
+
 # ----------------------------------------------------------------------------
-
-
 
 # SUPPORTING ANALYSIS: ANALYSIS OF THERMAL NICHE SHAPE FOR EACH SPECIES. SKEW VS. TOPT ----
 # Model t-skew with global model (across all species conf = 3) TROPICAL ----
@@ -716,11 +830,7 @@ qqplot(y = resid(GlobalModel_algae_conservative2), x = rnorm(1000)) # Errors are
   
   
 
-# ----------------------------------------------------------------------------
-
-
-
-# TABLE FOR SOM: ----
+# Table of model results for SOM ----
 stargazer(TropicalModel_coral, TemperateModel_algae, GlobalModel_algae2, GlobalModel_algae_conservative2,
           type = 'html', out = 'figure_final/Tskew analysis outputs.htm', 
           dep.var.labels=c("T-skew"), 
@@ -733,7 +843,7 @@ stargazer(TropicalModel_coral, TemperateModel_algae, GlobalModel_algae2, GlobalM
           column.labels = c('Tropical', 'Temperate', 'Global', 'Global < 26°C'))
 # ----------------------------------------------------------------------------
 
-
+# FIGURES FOR SUPPORTING ONLINE MATIERIALS ---------------------------------------------------------------------------- ----------------------------------------------------------------------------
 
 # SOM plot of thermal niche limits (results) ----
 # Testing variation in limits and edges ----
@@ -806,8 +916,67 @@ dev.off()
 
 # ----------------------------------------------------------------------------
 
+# SOM plot of comparison of thermal range breadths between tropical and temperate species ----
+pdf(file = 'figure_final/SOM_thermal-range-comparison.pdf', width = 3, height = 3, useDingbats = F)
+ggplot(data = ThermalNicheData_New %>% filter(ConfidenceCombined == 3), aes(x = ThermalGuild, y = T_Range, fill = ThermalGuild)) + 
+  geom_violin(alpha = 0.5, col = NA) + 
+  geom_jitter(aes(col = ThermalGuild), width = 0.1, height = 0) + 
+  scale_fill_manual(values = c('dark blue', 'dark orange 2')) + 
+  scale_colour_manual(values = c('dark blue', 'dark orange 2')) + 
+  theme_classic() + 
+  ylab('Thermal range') + 
+  xlab(NULL) + 
+  theme(legend.position = 'none', aspect.ratio = 1)
+dev.off()
 
+t.test(ThermalNicheData_New$T_Range[which(ThermalNicheData_New$ConfidenceCombined == 3)] ~ ThermalNicheData_New$ThermalGuild[which(ThermalNicheData_New$ConfidenceCombined == 3)])
+t.test(ThermalNicheData_New$T_Range ~ ThermalNicheData_New$ThermalGuild)
 
+# ----------------------------------------------------------------------------
+
+# SOM plot of comparison of rarity between tropical and temperate species ---- 
+
+SppOccupancyRate <- left_join(RLS_All, ThermalNicheData_New %>% select(SpeciesName, Topt)) %>% 
+  group_by(SpeciesName) %>% 
+  nest() %>%
+  mutate(SppOcc = purrr::map(data, ~mean(.$Presence))) %>% 
+  unnest(SppOcc) %>% select(-data)
+
+ThermalNicheData_Occ <- left_join(SppOccupancyRate, ThermalNicheData_New)
+
+pdf(file = 'figure_final/SOM-max abundance comparison.pdf', width = 6, height = 3, useDingbats = F)
+grid.arrange(
+  
+  ggplot(data = ThermalNicheData_New) + 
+    geom_boxplot(aes(x = ThermalGuild, y = log10(MaxAbundance), fill = ThermalGuild), draw_quantiles = c(0.25, 0.5, 0.95), col = 'black', alpha = 0.5) + 
+    geom_jitter(aes(x = ThermalGuild, y = log10(MaxAbundance), col = ThermalGuild), width = 0.2, height = 0, pch = 21) +
+    theme_classic() + 
+    theme(legend.position = 'none') + 
+    scale_fill_manual(values = c('darkblue', 'dark orange')) + 
+    scale_colour_manual(values = c('darkblue', 'dark orange')) + 
+    ylab('Log10 maximum abundance') + 
+    xlab(NULL),
+  
+  ggplot(data = ThermalNicheData_Occ) + 
+    geom_jitter(aes(x = ThermalGuild, y = SppOcc, col = ThermalGuild), width = 0.2, height = 0, pch = 21) +
+    geom_boxplot(aes(x = ThermalGuild, y = SppOcc, fill = ThermalGuild), draw_quantiles = c(0.25, 0.5, 0.95), col = 'black', alpha = 0.5) + 
+    theme_classic() + 
+    theme(legend.position = 'none') + 
+    scale_fill_manual(values = c('darkblue', 'dark orange')) + 
+    scale_colour_manual(values = c('darkblue', 'dark orange')) + 
+    ylab('Species range occupancy rate') + 
+    xlab(NULL), 
+  
+  ncol = 2
+  
+)
+dev.off()
+
+# No difference in means. 
+t.test(SppOcc ~ ThermalGuild, ThermalNicheData_Occ)
+t.test(MaxAbundance ~ ThermalGuild, ThermalNicheData_Occ)
+
+# ----------------------------------------------------------------------------
 
 # SOM plot of fundamental thermal niche data from globtherm ----
 
@@ -841,10 +1010,11 @@ dev.off()
   
 
 
-# ----
+# ----------------------------------------------------------------------------
 
 # Save progress ----
-save.image('data_derived/script3_save-image.RData')
+#save.image('data_derived/script3_save-image.RData')
+
 # ----
 
 
