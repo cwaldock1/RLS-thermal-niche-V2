@@ -809,6 +809,39 @@ dev.off()
 
 
 
+# SOM plot of fundamental thermal niche data from globtherm ----
+
+# Read in Amanda Bates compiled Ctmax and Ctmin data. 
+Bates_TND <- read.csv('data_raw/Ctmax and Ctmin.csv')
+Bates_TND <- Bates_TND %>% filter(taxon == 'fish')
+
+# Read in GlobTherm compiled data
+GlobTherm_TND <- read.csv('data_raw/ctmax_ctmin_globthermo.csv')
+unique(GlobTherm_TND$max_metric)
+GlobTherm_TND <- GlobTherm_TND %>% filter(max_metric == 'ctmax', max_pretreatment != 'F')
+unique(GlobTherm_TND$Tmax)
+GlobTherm_TND$max_pretreatment <- as.numeric(as.character(GlobTherm_TND$max_pretreatment))
+
+# Plot together 
+pdf('figure_final/SOM_acclimation-temperatures-critical-limits.pdf', width = 5, height = 5)
+ggplot() + 
+  geom_point(data = Bates_TND %>% filter(tolerance == 'hot'),  aes(x = haccl, y = Critical.Limit.haccl.AEB), col = 'red') + 
+  geom_point(data = Bates_TND %>% filter(tolerance == 'cold'), aes(x = laccl, y = Critical.Limit.laccl.AEB), col = 'blue') + 
+#  stat_smooth(data = Bates_TND %>% filter(tolerance == 'hot'),  aes(x = haccl, y = Critical.Limit.haccl.AEB), col = 'red') + 
+#  stat_smooth(data = Bates_TND %>% filter(tolerance == 'cold'), aes(x = haccl, y = Critical.Limit.haccl.AEB), col = 'blue') + 
+  geom_point(data = GlobTherm_TND,  aes(x = max_pretreatment, y = Tmax), col = 'red', pch = 21) + 
+  geom_point(data = GlobTherm_TND, aes( x = min_pretreatment, y = Tmin), col = 'blue', pch = 21) +  
+#  stat_smooth(data = GlobTherm_TND,  aes(x = max_pretreatment, y = Tmax), col = 'red', pch = 21) + 
+#  stat_smooth(data = GlobTherm_TND, aes( x = max_pretreatment, y = Tmin), col = 'blue', pch = 21) + 
+  xlab('Acclimation Temperature (°C)') + 
+  ylab('Critical limits') + 
+  theme_bw() + 
+  theme(aspect.ratio = 0.75) 
+dev.off()
+  
+
+
+# ----
 
 # Save progress ----
 save.image('data_derived/script3_save-image.RData')
