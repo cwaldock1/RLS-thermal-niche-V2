@@ -18,7 +18,7 @@ library(coda)
 library(gridExtra)
 
 # Load RLS_All from script 2 ----
-load('data_derived/objects-from-script-2.RData')
+load('data_derived/objects-from-script-2-05062018.RData')
 # ----------------------------------------------------------------------------
 
 

@@ -9,6 +9,7 @@
 # Initiated 07/05/2018
 # Author: Conor Waldock
 
+# ----------------------------------------------------------------------------
 # Load libraries ----
 library(lme4)
 library(MuMIn)
@@ -19,10 +20,15 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 
+# Load objects from script 02 to run below script ----
+
+# This version has taxonomy and species habitat associations pre-attached from code below, for data-release on submission. 
+# save.image(file = 'data_derived/objects-from-script-2-05062018.RData') 
+
+load(file = 'data_derived/objects-from-script-2-05062018.RData')
+
+
 # ----------------------------------------------------------------------------
-
-
-
 
 # ANALYSIS OF SHAPE PATTERNS IN QGAMS AND 'ECOLOGICAL PERFORMANCE CURVES' ----
 # Extract model runs and predict curves from models ----
@@ -295,6 +301,7 @@ Species_SitePreferences <- RLS_All_WithCovariates %>%
 
 ThermalNicheData_New <- left_join(ThermalNicheData_New, Species_SitePreferences)
 
+rm(SiteCovariates, SiteCovariates2, Species_SitePreferences, RLS_All_WithCovariates)
 
 
 
@@ -1343,9 +1350,49 @@ dev.off()
 # ----------------------------------------------------------------------------
 
 
+# Data release 05/06/2018 ----
+# Organise excel file and descriptors 
+
+library(dataframes2xls)
+
+ThermalNiche_refined <- ThermalNicheData_New %>% select(SpeciesName, ThermalGuild, 
+                                Topt, T_Upper, T_Lower, 
+                                T_Upper_Obs, T_Lower_Obs, T_Midpoint_Obs, 
+                                T_Upper_Mod,T_Lower_Mod, T_Skew 
+                                )
+names(ThermalNiche_refined) <- c('SpeciesName', 'ThermalGuild',
+                                 'Topt', 'Tmax', 'Tmin', 
+                                 'Tmax_obs', 'Tmin_obs', 'Topt_obs', 
+                                 'Tmax_model', 'Tmin_model', 'Tskew' )
+
+ThermalNiche_refined$Topt_conf <- ifelse( 3 + ThermalNicheData_New$Confidence_T_Opt_Difference_Upper + ThermalNicheData_New$Confidence_T_Opt_Difference_Lower + ThermalNicheData_New$Conf_Qgam == 3, 1, 0)
+ThermalNiche_refined <- as.data.frame(ThermalNiche_refined)
+
+
+# Create column descriptions
+Column_descriptions <- data.frame(Column = names(ThermalNiche_refined)) 
+
+Column_descriptions$Description = c('Species names', 
+  'Thermal guilds are identified as Topt < 23°C = temperate, Topt > 23°C = tropical', 
+  'Topt is defined from quantile generalized additive models where Topt_conf = 1, and from species distribution midpoints where Topt_conf = 0', 
+  'Tmax is defined from occupancy models when tmax_model is != NA, and Tmax_obs otherwise',
+  'Tmin is defined from occupancy models when tmin_model is != NA, and Tmin_obs otherwise',
+  'Tmax_obs the maximum temperature of species occurrence',
+  'Tmin_obs the minimum temperature of species occurrence',
+  'Topt_obs the midpoint of species temperature distribution, the median temperature of species occurence', 
+  'Tmax_model is defined from occupancy model of species upper thermal distribution limits', 
+  'Tmin_model is defined from occupancy model of species lower thermal distribution limits', 
+  'Tskew is the difference between sigma-Tmax and sigma-Tmin')
+
+
+dataframes2xls::write.xls(c(ThermalNiche_refined, Column_descriptions), "data_derived/RLS-thermal-niche-estimates.xls")
+
+
+# ----
+
 # Save progress ----
 #save.image('data_derived/script3_save-image.RData')
-load('data_derived/script3_save-image.RData')
+#load('data_derived/script3_save-image.RData')
 # ----
 
 

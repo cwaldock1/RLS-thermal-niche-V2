@@ -1574,5 +1574,3 @@ table(ThermalNicheData_New$ConfidenceCombined)
 #ThermalNicheData_New # The main object created from this script.
 #save.image(file = 'data_derived/objects-from-script-2.RData')
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
