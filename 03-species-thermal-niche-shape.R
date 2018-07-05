@@ -342,6 +342,7 @@ SpeciesTaxonomy <- read.csv('data_raw/RLS_GLOBAL_ABUND_BIOMASS_20170507.csv') %>
 SpeciesTaxonomy <- SpeciesTaxonomy %>% select(SPECIES_NAME, GENUS, FAMILY, ORDER) %>% unique()
 SpeciesTaxonomy <- SpeciesTaxonomy %>% plyr::rename(., replace = c('SPECIES_NAME' = 'SpeciesName', 'GENUS' = 'Genus', 'FAMILY' = 'Family', 'ORDER' = 'Order'))
 ThermalNicheData_New_conf3 <- left_join(ThermalNicheData_New_conf3, SpeciesTaxonomy)
+ThermalNicheData_New <- left_join(ThermalNicheData_New, SpeciesTaxonomy)
 
 # MAIN ANALYSIS 1. Model t-skew with global model (across all species conf = 3) ----
 
@@ -613,6 +614,7 @@ dev.off()
 
 # ----------------------------------------------------------------------------
 
+
 # SUPPORTING ANALYSIS: ANALYSIS OF THERMAL NICHE SHAPE FOR EACH SPECIES. SKEW VS. TOPT ----
 # Model t-skew with global model (across all species conf = 3) TROPICAL ----
 
@@ -746,7 +748,7 @@ plot(fitted(TemperateModel_algae), resid(TemperateModel_algae, type = 'pearson')
 qqplot(y = resid(TemperateModel_algae), x = rnorm(1000)) # Errors are normally distributed
 
 
-# Model t-skew with global model (across all species conf = 4) < 26°C Topt ----
+# Model t-skew with global model (across all species conf = 3) < 26°C Topt ----
 
 # Subset data for < 26°C global data 
 ThermalNicheData_New_conf3_26 <- ThermalNicheData_New_conf3 %>% filter(Topt < 26)
@@ -843,7 +845,331 @@ stargazer(TropicalModel_coral, TemperateModel_algae, GlobalModel_algae2, GlobalM
           column.labels = c('Tropical', 'Temperate', 'Global', 'Global < 26°C'))
 # ----------------------------------------------------------------------------
 
-# FIGURES FOR SUPPORTING ONLINE MATIERIALS ---------------------------------------------------------------------------- ----------------------------------------------------------------------------
+
+# SUPPORTING ANALYSIS: Thermal niche shapes for all species (no filtering by confidence scores) ----
+# Model t-skew with global model (across all species conf = all) ----
+# Global models for algal cover. 
+GlobalModel_allconf_algae <- lmer(T_Skew ~  
+                            Topt * ThermalGuild + 
+                            AlgalCover_Spp * ThermalGuild +
+                            (1|Order / Family / Genus), data = ThermalNicheData_New)
+
+GlobalModel_allconf_algae2 <- lmer(T_Skew ~  
+                             Topt * ThermalGuild + 
+                             AlgalCover_Spp + ThermalGuild +
+                             (1|Order / Family / Genus), data = ThermalNicheData_New)
+
+anova(GlobalModel_allconf_algae, GlobalModel_allconf_algae2, test = 'LRT') # No interaction between  algae association and Topt
+#Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+#GlobalModel_allconf_algae2  9 1830.1 1871.1 -906.05   1812.1                        
+#GlobalModel_allconf_algae  10 1831.9 1877.5 -905.96   1811.9 0.183      1     0.6688
+
+
+GlobalModel_allconf_algae3 <- lmer(T_Skew ~  
+                             Topt + ThermalGuild + 
+                             AlgalCover_Spp + ThermalGuild +
+                             (1|Order / Family / Genus), data = ThermalNicheData_New)
+
+anova(GlobalModel_allconf_algae2, GlobalModel_allconf_algae3, test="LRT") # Significant interaction between thermal niche Topt. 
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# GlobalModel_allconf_algae3  8 1943.6 1980.0 -963.79   1927.6                             
+# GlobalModel_allconf_algae2  9 1830.1 1871.1 -906.05   1812.1 115.48      1  < 2.2e-16 ***
+  
+GlobalModel_allconf_algae4 <- lmer(T_Skew ~  
+                             Topt * ThermalGuild + 
+                             (1|Order / Family / Genus), data = ThermalNicheData_New)
+anova(GlobalModel_allconf_algae2, GlobalModel_allconf_algae4, test="LRT") # Significant effect of algae (similar across realms) 
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# GlobalModel_allconf_algae4  8 1995.3 2031.8 -989.68   1979.3                             
+# GlobalModel_allconf_algae2  9 1830.1 1871.1 -906.05   1812.1 167.25      1  < 2.2e-16 ***
+  
+GlobalModel_allconf_algae5 <- lmer(T_Skew ~  
+                             ThermalGuild + 
+                             AlgalCover_Spp +
+                             (1|Order / Family / Genus), data = ThermalNicheData_New)
+anova(GlobalModel_allconf_algae2, GlobalModel_allconf_algae5, test="LRT") # Significant effect of Topt 
+# Df    AIC    BIC   logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# GlobalModel_allconf_algae5  7 2723.2 2755.1 -1354.62   2709.2                             
+# GlobalModel_allconf_algae2  9 1830.1 1871.1  -906.05   1812.1 897.13      2  < 2.2e-16 ***
+  
+# Remove taxonomy 
+GlobalModel_allconf_algae2_ML_nophylo <- lm(T_Skew ~  
+                                      Topt * ThermalGuild + 
+                                      AlgalCover_Spp + ThermalGuild, data = ThermalNicheData_New, REML = F) # 
+GlobalModel_allconf_algae2_ML <- lmer(T_Skew ~  
+                                Topt * ThermalGuild + 
+                                AlgalCover_Spp + ThermalGuild +
+                                (1|Order / Family / Genus), data = ThermalNicheData_New, REML = F) # 
+# Taxonomic terms are useful here
+AICc(GlobalModel_allconf_algae2_ML_nophylo, GlobalModel_allconf_algae2_ML)
+# df     AICc
+# GlobalModel_allconf_algae2_ML_nophylo  6 1848.235
+# GlobalModel_allconf_algae2_ML          9 1830.376
+
+# Test with drop1
+drop1(GlobalModel_allconf_algae2) # All terms are important. 
+# Df    AIC
+# <none>               1830.1
+# AlgalCover_Spp     1 1995.3
+# Topt:ThermalGuild  1 1943.6
+
+
+anova(GlobalModel_allconf_algae2, test = 'LRT') 
+# Analysis of Variance Table
+# Df  Sum Sq Mean Sq F value
+# Topt               1 1050.22 1050.22 1597.49
+# ThermalGuild       1  259.72  259.72  395.06
+# AlgalCover_Spp     1  166.16  166.16  252.74
+# Topt:ThermalGuild  1   84.56   84.56  128.62
+
+summary(GlobalModel_allconf_algae2)
+# Estimate Std. Error t value
+# (Intercept)               14.675462   0.783975   18.72
+# Topt                      -0.507114   0.029200  -17.37
+# ThermalGuildtropical      11.240262   0.786859   14.29
+# AlgalCover_Spp            -0.094956   0.006858  -13.85
+# Topt:ThermalGuildtropical -0.386798   0.034106  -11.34
+
+r.squaredGLMM(GlobalModel_allconf_algae2)
+# R2m       R2c 
+# 0.7364497 0.8282215 
+
+# Check residuals
+plot(GlobalModel_allconf_algae2)
+plot(fitted(GlobalModel_allconf_algae2), resid(GlobalModel_allconf_algae2, type = 'pearson'))
+qqplot(y = resid(GlobalModel_allconf_algae2), x = rnorm(1000)) # Errors are approximately normally distributed
+
+# Model t-skew with global model (across all species conf = all) TROPICAL ----
+
+ThermalNicheData_New_tropical_allconf <- ThermalNicheData_New %>% filter(ThermalGuild == 'tropical')
+
+# Tropical models for coral cover. 
+TropicalModel_allconf_coral <- lmer(T_Skew ~  
+                                      Topt +
+                                      LiveCoralCover_Spp +
+                                      (1|Order / Family / Genus), data = ThermalNicheData_New_tropical_allconf) # 
+
+TropicalModel_allconf_coral2 <- lmer(T_Skew ~  
+                                       LiveCoralCover_Spp +
+                                       (1|Order / Family / Genus), data = ThermalNicheData_New_tropical_allconf) # 
+
+anova(TropicalModel_allconf_coral, TropicalModel_allconf_coral2)
+#Df    AIC    BIC   logLik deviance  Chisq Chi Df Pr(>Chisq)    
+#TropicalModel_allconf_coral2  6 2051.4 2077.1 -1019.72   2039.4                             
+#TropicalModel_allconf_coral   7 1227.1 1257.0  -606.55   1213.1 826.34      1  < 2.2e-16 ***
+  
+TropicalModel_allconf_coral3 <- lmer(T_Skew ~  
+                               Topt + 
+                               (1|Order / Family / Genus), data = ThermalNicheData_New_tropical_allconf) # 
+
+anova(TropicalModel_allconf_coral, TropicalModel_allconf_coral3) # Significant coral effect.  
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# TropicalModel_allconf_coral3  6 1341.7 1367.3 -664.86   1329.7                             
+# TropicalModel_allconf_coral   7 1227.1 1257.0 -606.55   1213.1 116.62      1  < 2.2e-16 ***
+  
+# Remove phylogeny 
+TropicalModel_allconf_coral_ML_nophylo <- lm(T_Skew ~  
+                                       Topt +
+                                       LiveCoralCover_Spp, data = ThermalNicheData_New_tropical_allconf, REML = 'ML') # 
+TropicalModel_allconf_coral_ML <- lmer(T_Skew ~  
+                                 Topt +
+                                 LiveCoralCover_Spp +
+                                 (1|Order / Family / Genus), data = ThermalNicheData_New_tropical_allconf, REML = F) # 
+AICc(TropicalModel_allconf_coral_ML_nophylo, TropicalModel_allconf_coral_ML)
+
+# Define final model
+TropicalModel_allconf_coral
+
+# Keep all remaining terms. 
+drop1(TropicalModel_allconf_coral)
+#Df    AIC
+#<none>                1227.1
+#Topt                1 2051.4
+#LiveCoralCover_Spp  1 1341.7
+
+summary(TropicalModel_allconf_coral)
+#Fixed effects:
+#  Estimate Std. Error t value
+#(Intercept)        20.813366   0.550582   37.80
+#Topt               -0.902618   0.019711  -45.79
+#LiveCoralCover_Spp  0.105410   0.009142   11.53
+
+r.squaredGLMM(TropicalModel_allconf_coral)
+# R2m       R2c 
+# 0.6553700 0.8589111 
+
+# Check residuals
+plot(TropicalModel_allconf_coral)
+plot(fitted(TropicalModel_allconf_coral), resid(TropicalModel_allconf_coral, type = 'pearson'))
+qqplot(y = resid(TropicalModel_allconf_coral), x = rnorm(1000)) # Errors are normally distributed
+
+# Do we get the same effect when fitted to < 26°C
+TropicalModel_allconf_coral_Final_UpperTruncated      <- lmer(formula(TropicalModel_allconf_coral), data = ThermalNicheData_New_tropical_allconf %>% filter(Topt < 26))
+# Fixed Effects:
+#   (Intercept)                Topt  LiveCoralCover_Spp  
+# 15.67581            -0.69501             0.08146  
+
+# Model t-skew with global model (across all species conf = all) TEMPERATE ----
+
+# Select temperate species only 
+ThermalNicheData_New_temp_allconf <- ThermalNicheData_New %>% filter(ThermalGuild == 'temperate')
+
+# Temperate models for algae cover. 
+TemperateModel_allconf_algae <- lmer(T_Skew ~  
+                               Topt +
+                               AlgalCover_Spp +
+                               (1|Order / Family / Genus), data = ThermalNicheData_New_temp_allconf) # 
+
+TemperateModel_allconf_algae2 <- lmer(T_Skew ~  
+                                AlgalCover_Spp +
+                                (1|Order / Family / Genus), data = ThermalNicheData_New_temp_allconf) # 
+
+anova(TemperateModel_allconf_algae, TemperateModel_allconf_algae2) # Siginificant temperature effect. 
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# TemperateModel_allconf_algae2  6 664.98 683.97 -326.49   652.98                             
+# TemperateModel_allconf_algae   7 552.25 574.40 -269.12   538.25 114.73      1  < 2.2e-16 ***
+  
+TemperateModel_allconf_algae3 <- lmer(T_Skew ~  
+                                Topt + 
+                                (1|Order / Family / Genus), data = ThermalNicheData_New_temp_allconf) # 
+
+anova(TemperateModel_allconf_algae, TemperateModel_allconf_algae3) # Significant algae effect  
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# TemperateModel_allconf_algae3  6 601.83 620.82 -294.92   589.83                             
+# TemperateModel_allconf_algae   7 552.25 574.40 -269.12   538.25 51.587      1  6.851e-13 ***
+  
+# Remove phylogeny 
+TemperateModel_allconf_algae_ML_nophylo <- lm(T_Skew ~  
+                                        Topt +
+                                        AlgalCover_Spp, data = ThermalNicheData_New_temp_allconf, REML = F) # 
+TemperateModel_allconf_algae_ML <- lmer(T_Skew ~  
+                                  Topt +
+                                  AlgalCover_Spp +
+                                  (1|Order / Family / Genus), data = ThermalNicheData_New_temp_allconf, REML = F) # 
+AICc(TemperateModel_allconf_algae_ML_nophylo, TemperateModel_allconf_algae_ML)
+#df     AICc
+#TemperateModel_allconf_algae_ML_nophylo  4 560.3741
+#TemperateModel_allconf_algae_ML          7 552.9159
+
+# Define final model
+TemperateModel_allconf_algae
+
+summary(TemperateModel_allconf_algae)
+# Estimate Std. Error t value
+# (Intercept)    15.19068    1.20766  12.579
+# Topt           -0.52114    0.04033 -12.923
+# AlgalCover_Spp -0.09520    0.01233  -7.723
+
+r.squaredGLMM(TemperateModel_allconf_algae)
+# R2m       R2c 
+# 0.4699207 0.6784647 
+
+# Check residuals
+plot(TemperateModel_allconf_algae)
+plot(fitted(TemperateModel_allconf_algae), resid(TemperateModel_allconf_algae, type = 'pearson'))
+qqplot(y = resid(TemperateModel_allconf_algae), x = rnorm(1000)) # Errors are normally distributed
+
+
+# Model t-skew with global model (across all species conf = all) < 26°C Topt ----
+
+# Subset data for < 26°C global data 
+ThermalNicheData_New_allconf_26 <- ThermalNicheData_New %>% filter(Topt < 26)
+
+# Global models for algal cover. 
+GlobalModel_allconf_algae_conservative <- lmer(T_Skew ~  
+                                         Topt * ThermalGuild + 
+                                         AlgalCover_Spp * ThermalGuild +
+                                         (1|Order / Family / Genus), data = ThermalNicheData_New_allconf_26)
+
+GlobalModel_allconf_algae_conservative2 <- lmer(T_Skew ~  
+                                          Topt * ThermalGuild + 
+                                          AlgalCover_Spp + ThermalGuild +
+                                          (1|Order / Family / Genus), data = ThermalNicheData_New_allconf_26)
+
+anova(GlobalModel_allconf_algae_conservative, GlobalModel_allconf_algae_conservative2) # Significant interaction between algae association and thermal guild
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)   
+# GlobalModel_allconf_algae_conservative2  9 879.87 912.65 -430.94   861.87                            
+# GlobalModel_allconf_algae_conservative  10 873.86 910.27 -426.93   853.86 8.0193      1   0.004628 **
+  
+
+GlobalModel_allconf_algae_conservative3 <- lmer(T_Skew ~  
+                                          Topt + 
+                                          AlgalCover_Spp + ThermalGuild +
+                                          (1|Order / Family / Genus), data = ThermalNicheData_New_allconf_26)
+
+anova(GlobalModel_allconf_algae_conservative, GlobalModel_allconf_algae_conservative3, test="LRT") # Significant interaction between T-opt and thermal guild 
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)   
+# GlobalModel_allconf_algae_conservative3  8 880.44 909.57 -432.22   864.44                            
+# GlobalModel_allconf_algae_conservative  10 873.86 910.27 -426.93   853.86 10.582      2   0.005037 **
+  
+GlobalModel_allconf_algae_conservative4 <- lmer(T_Skew ~  
+                                          Topt*ThermalGuild + 
+                                          (1|Order / Family / Genus), data = ThermalNicheData_New_allconf_26)
+anova(GlobalModel_allconf_algae_conservative2, GlobalModel_allconf_algae_conservative4, test="LRT") # Significant effect of algae (dissimilar across realms) 
+# Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# GlobalModel_allconf_algae_conservative4  8 949.91 979.05 -466.96   933.91                             
+# GlobalModel_allconf_algae_conservative2  9 879.87 912.65 -430.94   861.87 72.036      1  < 2.2e-16 ***
+  
+GlobalModel_allconf_algae_conservative5 <- lmer(T_Skew ~  
+                                          ThermalGuild + 
+                                          AlgalCover_Spp +
+                                          (1|Order / Family / Genus), data = ThermalNicheData_New_allconf_26)
+anova(GlobalModel_allconf_algae_conservative2, GlobalModel_allconf_algae_conservative5, test="LRT") # Significant effect of Topt 
+# Df     AIC     BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)    
+# GlobalModel_allconf_algae_conservative5  7 1018.58 1044.08 -502.29  1004.58                             
+# GlobalModel_allconf_algae_conservative2  9  879.87  912.65 -430.94   861.87 142.71      2  < 2.2e-16 ***
+  
+drop1(GlobalModel_allconf_algae_conservative)               # All terms are important. 
+# T_Skew ~ Topt * ThermalGuild + AlgalCover_Spp + (1 | Order/Family/Genus)
+#Df    AIC
+#<none>                         873.86
+#Topt:ThermalGuild            1 879.78
+#ThermalGuild:AlgalCover_Spp  1 879.87
+
+anova(GlobalModel_allconf_algae_conservative, test = 'LRT') 
+#Df Sum Sq Mean Sq F value
+#Topt                         1 58.220  58.220 57.2607
+#ThermalGuild                 1 56.817  56.817 55.8809
+#AlgalCover_Spp               1 87.737  87.737 86.2914
+#Topt:ThermalGuild            1  2.709   2.709  2.6639
+#ThermalGuild:AlgalCover_Spp  1  8.098   8.098  7.9646
+
+summary(GlobalModel_allconf_algae_conservative)
+#Estimate Std. Error t value
+#(Intercept)                         14.52854    1.19147  12.194
+#Topt                                -0.50291    0.04049 -12.420
+#ThermalGuildtropical                14.67449    4.16293   3.525
+#AlgalCover_Spp                      -0.09529    0.01190  -8.005
+#Topt:ThermalGuildtropical           -0.39512    0.13731  -2.878
+#ThermalGuildtropical:AlgalCover_Spp -0.09568    0.03390  -2.822
+
+r.squaredGLMM(GlobalModel_allconf_algae_conservative)
+# R2m       R2c 
+# 0.4068782 0.5678472 
+
+# Check residuals
+plot(GlobalModel_allconf_algae_conservative)
+plot(fitted(GlobalModel_allconf_algae_conservative), resid(GlobalModel_allconf_algae_conservative, type = 'pearson'))
+qqplot(y = resid(GlobalModel_allconf_algae_conservative), x = rnorm(1000)) # Errors are normally distributed
+
+
+stargazer(TropicalModel_allconf_coral, TemperateModel_allconf_algae, GlobalModel_allconf_algae2, GlobalModel_allconf_algae_conservative,
+          type = 'html', out = 'figure_final/Tskew analysis outputs-allconf.htm', 
+          dep.var.labels=c("T-skew"), 
+          covariate.labels = c('T-opt', 
+                               'Coral association', 
+                               'Thermal guild (tropical)', 
+                               'Algae association', 
+                               'T-opt : Thermal guild (tropical)', 
+                               'Algae association : Thermal guild (tropical)'
+                               'Intercept'), 
+          column.labels = c('Tropical', 'Temperate', 'Global', 'Global < 26°C'), 
+          digits = 2)
+
+# ----
+
+
+# FIGURES FOR SUPPORTING ONLINE MATIERIALS ---------------------------------------------------------------------------
 
 # SOM plot of thermal niche limits (results) ----
 # Testing variation in limits and edges ----
@@ -868,7 +1194,7 @@ pdf('figure_final/SOM_histogram-of-thermal-niche-parameters.pdf', width = 6, hei
 ggplot(data = Hist_data) + 
   geom_histogram(aes(Value, fill = ThermalGuild)) + 
   facet_wrap(ThermalGuild ~ Parameter) + 
-  geom_text(aes(x = mean(Value), y = 30, label = paste('SD = ', round(SD, 3), sep = ''))) + 
+  geom_text(aes(x = unique(mean(Value)), y = 30, label = paste('SD = ', round(SD, 3), sep = ''))) + 
   scale_fill_manual(values = c('dark blue', 'dark orange')) + 
   theme_light() + 
   theme(aspect.ratio = 1, legend.position = 'none')
@@ -916,6 +1242,7 @@ dev.off()
 
 # ----------------------------------------------------------------------------
 
+
 # SOM plot of comparison of thermal range breadths between tropical and temperate species ----
 pdf(file = 'figure_final/SOM_thermal-range-comparison.pdf', width = 3, height = 3, useDingbats = F)
 ggplot(data = ThermalNicheData_New %>% filter(ConfidenceCombined == 3), aes(x = ThermalGuild, y = T_Range, fill = ThermalGuild)) + 
@@ -933,6 +1260,7 @@ t.test(ThermalNicheData_New$T_Range[which(ThermalNicheData_New$ConfidenceCombine
 t.test(ThermalNicheData_New$T_Range ~ ThermalNicheData_New$ThermalGuild)
 
 # ----------------------------------------------------------------------------
+
 
 # SOM plot of comparison of rarity between tropical and temperate species ---- 
 
@@ -978,6 +1306,7 @@ t.test(MaxAbundance ~ ThermalGuild, ThermalNicheData_Occ)
 
 # ----------------------------------------------------------------------------
 
+
 # SOM plot of fundamental thermal niche data from globtherm ----
 
 # Read in Amanda Bates compiled Ctmax and Ctmin data. 
@@ -1012,9 +1341,10 @@ dev.off()
 
 # ----------------------------------------------------------------------------
 
+
 # Save progress ----
 #save.image('data_derived/script3_save-image.RData')
-
+load('data_derived/script3_save-image.RData')
 # ----
 
 

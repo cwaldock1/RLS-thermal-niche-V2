@@ -885,10 +885,11 @@ summary(Temp_Model_Upper1)
 summary(Temp_Model_Upper3)
 
 # Summaries of fixed effects model selections
-summary(FinalTempUpperModel)
 summary(FinalTempLowerModel)
-summary(FinalTropUpperModel)
+summary(FinalTempUpperModel)
 summary(FinalTropLowerModel)
+summary(FinalTropUpperModel)
+
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # EXTRACT NICHE LIMITS FROM RANDOM EFFECTS AND PLOT IN MULTIPANEL ----

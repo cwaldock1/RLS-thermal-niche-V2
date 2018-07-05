@@ -377,8 +377,8 @@ AllJAGS_0.99 <- RunJAGSModels(modeldata = AllData_JAGS,
                               Scale = 'Species', 
                               n.thin     = 5, 
                               n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                              n.burnin   = 2500,
+                              n.iter     = 10000)
 saveRDS(AllJAGS_0.99, 'data_derived/jagsmodels/AllJAGS_0.99.rds')
 #AllJAGS_0.99 <- readRDS('data_derived/jagsmodels/AllJAGS_0.99.rds')
 
@@ -404,10 +404,10 @@ TropJAGS_0.99 <- RunJAGSModels(modeldata = TropData_JAGS,
                                Subset = 'Quantile 0.99', # Define which subset we are talking about
                                ThermalGuild = 'tropical', 
                                Scale = 'Species', 
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                               n.thin     = 5, 
+                               n.chains   = 4,
+                               n.burnin   = 2500,
+                               n.iter     = 10000)
 saveRDS(TropJAGS_0.99, 'data_derived/jagsmodels/TropJAGS_0.99.rds')
 #TropJAGS_0.99 <- readRDS('data_derived/jagsmodels/TropJAGS_0.99.rds')
 
@@ -432,12 +432,12 @@ TempJAGS_0.99 <- RunJAGSModels(modeldata = TempData_JAGS,
                                Subset = 'Quantile 0.99', # Define which subset we are talking about
                                ThermalGuild = 'Temperate', 
                                Scale = 'Species', 
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                               n.thin     = 5, 
+                               n.chains   = 4,
+                               n.burnin   = 2500,
+                               n.iter     = 10000)
 saveRDS(TempJAGS_0.99, 'data_derived/jagsmodels/TempJAGS_0.99.rds')
-TempJAGS_0.99 <- readRDS('data_derived/jagsmodels/TempJAGS_0.99.rds')
+#TempJAGS_0.99 <- readRDS('data_derived/jagsmodels/TempJAGS_0.99.rds')
 
 # Summary statistic for above model 
 round(TempJAGS_0.99$models[[1]]$BUGSoutput$summary['T_Opt',], 3)
@@ -461,11 +461,12 @@ AllJAGS_0.99_Aggregated <- RunJAGSModels(modeldata = AllData_JAGS,
                                          Subset = 'Quantile 0.99', # Define which subset we are talking about
                                          ThermalGuild = 'tropical', 
                                          Scale = 'Aggregated', 
-                                         n.thin     = 10, 
+                                         n.thin     = 5, 
                                          n.chains   = 4,
-                                         n.burnin   = 7500,
+                                         n.burnin   = 2500,
                                          n.iter     = 10000)
 saveRDS(AllJAGS_0.99_Aggregated , 'data_derived/jagsmodels/AllJAGS_0.99_Aggregated.rds')
+
 round(AllJAGS_0.99_Aggregated$models[[1]]$BUGSoutput$summary['R_squared',], 3)
 
 # TropJAGS_0.99 aggregation ----
@@ -475,14 +476,14 @@ TropJAGS_0.99_Aggregated <- RunJAGSModels(modeldata = TropData_JAGS,
                                           Subset = 'Quantile 0.99', # Define which subset we are talking about
                                           ThermalGuild = 'tropical', 
                                           Scale = 'Aggregated', 
-                                          n.thin     = 10, 
+                                          n.thin     = 5, 
                                           n.chains   = 4,
-                                          n.burnin   = 7500,
+                                          n.burnin   = 2500,
                                           n.iter     = 10000)
 
 saveRDS(TropJAGS_0.99_Aggregated , 'data_derived/jagsmodels/TropJAGS_0.99_Aggregated.rds')
+
 TropJAGS_0.99_Aggregated$models[[1]]$BUGSoutput$summary['R_squared',]
-TempJAGS_0.99_Aggregated$models[[1]]$BUGSoutput$summary['R_squared',]
 
 # TempJAGS_0.99 aggregation ----
 TempJAGS_0.99_Aggregated  <- RunJAGSModels(modeldata = TempData_JAGS,
@@ -491,13 +492,13 @@ TempJAGS_0.99_Aggregated  <- RunJAGSModels(modeldata = TempData_JAGS,
                                            Subset = 'Quantile 0.99', # Define which subset we are talking about
                                            ThermalGuild = 'temperate', 
                                            Scale = 'Aggregated', 
-                                           n.thin     = 10, 
+                                           n.thin     = 5, 
                                            n.chains   = 4,
-                                           n.burnin   = 7500,
+                                           n.burnin   = 2500,
                                            n.iter     = 10000)
 
 saveRDS(TempJAGS_0.99_Aggregated , 'data_derived/jagsmodels/TempJAGS_0.99_Aggregated.rds')
-TropJAGS_0.99_Aggregated$models[[1]]$BUGSoutput$summary['R_squared',]
+
 TempJAGS_0.99_Aggregated$models[[1]]$BUGSoutput$summary['R_squared',]
 
 # ----------------------------------------------------------------------------
@@ -511,10 +512,10 @@ AllJAGS_0.99_ABUN <- RunJAGSModels(modeldata = AllData_JAGS %>% filter(Abundance
                                    Subset = 'Quantile 0.99', # Define which subset we are talking about
                                    ThermalGuild = 'tropical', 
                                    Scale = 'Species', 
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                                   n.thin     = 5, 
+                                   n.chains   = 4,
+                                   n.burnin   = 2500,
+                                   n.iter     = 10000)
 saveRDS(AllJAGS_0.99_ABUN, 'data_derived/jagsmodels/AllJAGS_0.99_ABUN.rds')
 
 round(AllJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Opt',], 3)
@@ -532,12 +533,12 @@ TropJAGS_0.99_ABUN <- RunJAGSModels(modeldata = TropData_JAGS %>% filter(Abundan
                                     Subset = 'Quantile 0.99', # Define which subset we are talking about
                                     ThermalGuild = 'tropical', 
                                     Scale = 'Species', 
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                                    n.thin     = 5, 
+                                    n.chains   = 4,
+                                    n.burnin   = 2500,
+                                    n.iter     = 10000)
 saveRDS(TropJAGS_0.99_ABUN, 'data_derived/jagsmodels/TropJAGS_0.99_ABUN.rds')
-TropJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TropJAGS_0.99_ABUN.rds')
+#TropJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TropJAGS_0.99_ABUN.rds')
 
 round(TropJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Opt',], 3)
 round(TropJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Breadth',], 3)
@@ -554,12 +555,12 @@ TempJAGS_0.99_ABUN <- RunJAGSModels(modeldata = TempData_JAGS %>% filter(Abundan
                                     Subset = 'Quantile 0.99', # Define which subset we are talking about
                                     ThermalGuild = 'temperate', 
                                     Scale = 'Species', 
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                                    n.thin     = 5, 
+                                    n.chains   = 4,
+                                    n.burnin   = 2500,
+                                    n.iter     = 10000)
 saveRDS(TempJAGS_0.99_ABUN, 'data_derived/jagsmodels/TempJAGS_0.99_ABUN.rds')
-TempJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TempJAGS_0.99_ABUN.rds')
+#TempJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TempJAGS_0.99_ABUN.rds')
 
 round(TempJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Opt',], 3)
 round(TempJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Breadth',], 3)
@@ -577,9 +578,9 @@ AllJAGS_0.99_ABUN_AGG <- RunJAGSModels(modeldata = AllData_JAGS %>% filter(Abund
                                        Subset = 'Quantile 0.99', # Define which subset we are talking about
                                        ThermalGuild = 'tropical', 
                                        Scale = 'Aggregated', 
-                                       n.thin     = 10, 
+                                       n.thin     = 5, 
                                        n.chains   = 4,
-                                       n.burnin   = 7500,
+                                       n.burnin   = 2500,
                                        n.iter     = 10000)
 saveRDS(AllJAGS_0.99_ABUN_AGG, 'data_derived/jagsmodels/AllJAGS_0.99_ABUN_AGG.rds')
 
@@ -590,9 +591,9 @@ TropJAGS_0.99_ABUN_AGG <- RunJAGSModels(modeldata = TropData_JAGS %>% filter(Abu
                                         Subset = 'Quantile 0.99', # Define which subset we are talking about
                                         ThermalGuild = 'tropical', 
                                         Scale = 'Aggregated', 
-                                        n.thin     = 10, 
+                                        n.thin     = 5, 
                                         n.chains   = 4,
-                                        n.burnin   = 7500,
+                                        n.burnin   = 2500,
                                         n.iter     = 10000)
 saveRDS(TropJAGS_0.99_ABUN_AGG, 'data_derived/jagsmodels/TropJAGS_0.99_ABUN_AGG.rds')
 
@@ -604,9 +605,9 @@ TempJAGS_0.99_ABUN_AGG <- RunJAGSModels(modeldata = TempData_JAGS %>% filter(Abu
                                         Subset = 'Quantile 0.99', # Define which subset we are talking about
                                         ThermalGuild = 'temperate', 
                                         Scale = 'Aggregated', 
-                                        n.thin     = 10, 
+                                        n.thin     = 5, 
                                         n.chains   = 4,
-                                        n.burnin   = 7500,
+                                        n.burnin   = 2500,
                                         n.iter     = 10000)
 saveRDS(TempJAGS_0.99_ABUN_AGG, 'data_derived/jagsmodels/TempJAGS_0.99_ABUN_AGG.rds')
 
@@ -620,11 +621,11 @@ AllJAGS_OCC <- RunJAGSModels_OCC(modeldata = AllData_JAGS,
                                  params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var", "R_squared"),
                                  Subset = 'Occupancy', # Define which subset we are talking about
                                  ThermalGuild = 'temperate', 
-                                 Scale = 'Species',  
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                                 Scale = 'Species', 
+                                 n.thin     = 5, 
+                                 n.chains   = 4,
+                                 n.burnin   = 2500,
+                                 n.iter     = 10000)
 saveRDS(AllJAGS_OCC, 'data_derived/jagsmodels/AllJAGS_OCC.rds')
 
 
@@ -641,13 +642,13 @@ TropJAGS_OCC <- RunJAGSModels_OCC(modeldata = TropData_JAGS,
                                   params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var", "R_squared"),
                                   Subset = 'Occupancy', # Define which subset we are talking about
                                   ThermalGuild = 'tropical', 
-                                  Scale = 'Species',  
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                                  Scale = 'Species', 
+                                  n.thin     = 5, 
+                                  n.chains   = 4,
+                                  n.burnin   = 2500,
+                                  n.iter     = 10000)
 saveRDS(TropJAGS_OCC, 'data_derived/jagsmodels/TropJAGS_OCC.rds')
-TropJAGS_OCC <- readRDS('data_derived/jagsmodels/TropJAGS_OCC.rds')
+#TropJAGS_OCC <- readRDS('data_derived/jagsmodels/TropJAGS_OCC.rds')
 
 
 round(TropJAGS_OCC$models$BUGSoutput$summary['T_Opt',], 3)
@@ -663,13 +664,13 @@ TempJAGS_OCC <- RunJAGSModels_OCC(modeldata = TempData_JAGS,
                                   params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var", "R_squared"),
                                   Subset = 'Occupancy', # Define which subset we are talking about
                                   ThermalGuild = 'temperate', 
-                                  Scale = 'Species',  
-                              n.thin     = 5, 
-                              n.chains   = 4,
-                              n.burnin   = 100,
-                              n.iter     = 500)
+                                  Scale = 'Species', 
+                                  n.thin     = 5, 
+                                  n.chains   = 4,
+                                  n.burnin   = 2500,
+                                  n.iter     = 10000)
 saveRDS(TempJAGS_OCC, 'data_derived/jagsmodels/TempJAGS_OCC.rds')
-TempJAGS_OCC <- readRDS('data_derived/jagsmodels/TempJAGS_OCC.rds')
+#TempJAGS_OCC <- readRDS('data_derived/jagsmodels/TempJAGS_OCC.rds')
 
 round(TempJAGS_OCC$models$BUGSoutput$summary['T_Opt',], 3)
 round(TempJAGS_OCC$models$BUGSoutput$summary['T_Breadth',], 3)
@@ -686,9 +687,9 @@ AllJAGS_OCC_AGG <- RunJAGSModels_OCC(modeldata = AllData_JAGS,
                                      Subset = 'Occupancy', # Define which subset we are talking about
                                      ThermalGuild = 'temperate', 
                                      Scale = 'Aggregated', 
-                                     n.thin     = 10, 
+                                     n.thin     = 5, 
                                      n.chains   = 4,
-                                     n.burnin   = 7500,
+                                     n.burnin   = 2500,
                                      n.iter     = 10000)
 saveRDS(AllJAGS_OCC_AGG, 'data_derived/jagsmodels/AllJAGS_OCC_AGG.rds')
 
@@ -700,9 +701,9 @@ TropJAGS_OCC_AGG <- RunJAGSModels_OCC(modeldata = TropData_JAGS,
                                       Subset = 'Occupancy', # Define which subset we are talking about
                                       ThermalGuild = 'tropical', 
                                       Scale = 'Aggregated', 
-                                      n.thin     = 10, 
+                                      n.thin     = 5, 
                                       n.chains   = 4,
-                                      n.burnin   = 7500,
+                                      n.burnin   = 2500,
                                       n.iter     = 10000)
 saveRDS(TropJAGS_OCC_AGG, 'data_derived/jagsmodels/TropJAGS_OCC_AGG.rds')
 
@@ -714,9 +715,9 @@ TempJAGS_OCC_AGG <- RunJAGSModels_OCC(modeldata = TempData_JAGS,
                                       Subset = 'Occupancy', # Define which subset we are talking about
                                       ThermalGuild = 'temperate', 
                                       Scale = 'Aggregated', 
-                                      n.thin     = 10, 
+                                      n.thin     = 5, 
                                       n.chains   = 4,
-                                      n.burnin   = 7500,
+                                      n.burnin   = 2500,
                                       n.iter     = 10000)
 saveRDS(TempJAGS_OCC_AGG, 'data_derived/jagsmodels/TempJAGS_OCC_AGG.rds')
 
@@ -732,47 +733,47 @@ round(TempJAGS_OCC_AGG$models$BUGSoutput$summary['R_squared',], 4)
 # FIT MODELS TO QUANTILE RANGE 0.8-0.99 ---- 
 TropJAGS_Quantiles_ABUN <- RunJAGSModels(modeldata = TropData_JAGS %>% filter(AbundanceAdult40 > 0),
                                          params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var"),
-                                         Quantile = seq(from = 0.99, to =  0.8, length.out = 10),
-                                         Subset = seq(from = 0.99, to =  0.8, length.out = 10), # Define which subset we are talking about
+                                         Quantile = seq(from = 0.99, to =  0.8, length.out = 20),
+                                         Subset = seq(from = 0.99, to =  0.8, length.out = 20), # Define which subset we are talking about
                                          ThermalGuild = 'tropical', 
-                                         Scale = 'Aggregated', 
-                                         n.thin     = 10, 
+                                         Scale = 'Species', 
+                                         n.thin     = 5, 
                                          n.chains   = 4,
-                                         n.burnin   = 750,
-                                         n.iter     = 1000)
+                                         n.burnin   = 1000,
+                                         n.iter     = 5000)
 
 TempJAGS_Quantiles_ABUN <- RunJAGSModels(modeldata = TempData_JAGS %>% filter(AbundanceAdult40 > 0),
                                          params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var"),
-                                         Quantile = seq(from = 0.99, to =  0.8, length.out = 10),
-                                         Subset = seq(from = 0.99, to =  0.8, length.out = 10), # Define which subset we are talking about
+                                         Quantile = seq(from = 0.99, to =  0.8, length.out = 20),
+                                         Subset = seq(from = 0.99, to =  0.8, length.out = 20), # Define which subset we are talking about
                                          ThermalGuild = 'temperate', 
-                                         Scale = 'Aggregated', 
-                                         n.thin     = 10, 
+                                         Scale = 'Species', 
+                                         n.thin     = 5, 
                                          n.chains   = 4,
-                                         n.burnin   = 750,
-                                         n.iter     = 1000)
+                                         n.burnin   = 1000,
+                                         n.iter     = 5000)
 
 TropJAGS_Quantiles <- RunJAGSModels(modeldata = TropData_JAGS,
                                     params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var"),
-                                    Quantile = seq(from = 0.99, to =  0.8, length.out = 10),
-                                    Subset = seq(from = 0.99, to =  0.8, length.out = 10), # Define which subset we are talking about
+                                    Quantile = seq(from = 0.99, to =  0.8, length.out = 20),
+                                    Subset = seq(from = 0.99, to =  0.8, length.out = 20), # Define which subset we are talking about
                                     ThermalGuild = 'tropical', 
-                                    Scale = 'Aggregated', 
-                                    n.thin     = 10, 
+                                    Scale = 'Species', 
+                                    n.thin     = 5, 
                                     n.chains   = 4,
-                                    n.burnin   = 750,
-                                    n.iter     = 1000)
+                                    n.burnin   = 1000,
+                                    n.iter     = 5000)
 
 TempJAGS_Quantiles <- RunJAGSModels(modeldata = TempData_JAGS,
                                     params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var"),
-                                    Quantile = seq(from = 0.99, to =  0.8, length.out = 10),
-                                    Subset = seq(from = 0.99, to =  0.8, length.out = 10), # Define which subset we are talking about
+                                    Quantile = seq(from = 0.99, to =  0.8, length.out = 20),
+                                    Subset = seq(from = 0.99, to =  0.8, length.out = 20), # Define which subset we are talking about
                                     ThermalGuild = 'temperate', 
-                                    Scale = 'Aggregated', 
-                                    n.thin     = 10, 
+                                    Scale = 'Species', 
+                                    n.thin     = 5, 
                                     n.chains   = 4,
-                                    n.burnin   = 750,
-                                    n.iter     = 1000)
+                                    n.burnin   = 1000,
+                                    n.iter     = 5000)
 
 save(TropJAGS_Quantiles_ABUN, TempJAGS_Quantiles_ABUN, TropJAGS_Quantiles, TempJAGS_Quantiles, file = 'data_derived/jagsmodels/JAGS_Quantiles_All.RData')
 
@@ -810,10 +811,10 @@ ggplot()+
              aes(x = Species_MeanSiteSST_NOAA_V2, y = ScaledLogAbundanceAdult40_V2, size = N_species),  col = 'black',  fill = 'black',  pch = 21,  alpha = 1) +
   
   # Plot confidence intervals.
-  geom_ribbon(data  = AllJAGS_0.99_Data, aes(x = Species_MeanSiteSST_NOAA_V2, ymin = Performance_Lower, ymax = Performance_Upper), fill = 'forest green', alpha = 0.5) +
+  geom_ribbon(data  = AllJAGS_0.99_Data, aes(x = Species_MeanSiteSST_NOAA_V2, ymin = Performance_Lower, ymax = Performance_Upper), fill = 'red', alpha = 0.5) +
   
   # Fitted trend lines
-  geom_line(data  = AllJAGS_0.99_Data, aes(x = Species_MeanSiteSST_NOAA_V2, y = Performance), colour = 'forest green',     size= 0.5, lty = 1) +
+  geom_line(data  = AllJAGS_0.99_Data, aes(x = Species_MeanSiteSST_NOAA_V2, y = Performance), colour = 'white',     size= 0.5, lty = 1) +
   
   # Hand theme
   theme_classic() +
@@ -895,6 +896,8 @@ ggplot() +
   ylab(NULL) + 
   xlim(-4,4)
 dev.off()
+
+
 # SOM Plot of coefficients from all (unaggregated) JAGS model outputs ---- 
 coefs_data <- read.csv('data_derived/jagsmodels/coefficient_table-forplot.csv')
 
@@ -1044,7 +1047,7 @@ ggplot() +
   facet_wrap(~colour, scales = 'free') + 
   theme_classic() + 
   xlab('Quantile') + 
-  theme(strip.text = element_blank(), aspect.ratio=1) + 
+  #theme(strip.text = element_blank(), aspect.ratio=1) + 
   ylab('Performance peak')
 dev.off()
 
