@@ -1161,12 +1161,13 @@ stargazer(TropicalModel_allconf_coral, TemperateModel_allconf_algae, GlobalModel
                                'Thermal guild (tropical)', 
                                'Algae association', 
                                'T-opt : Thermal guild (tropical)', 
-                               'Algae association : Thermal guild (tropical)'
+                               'Algae association : Thermal guild (tropical)',
                                'Intercept'), 
           column.labels = c('Tropical', 'Temperate', 'Global', 'Global < 26°C'), 
           digits = 2)
 
 # ----
+
 
 
 # FIGURES FOR SUPPORTING ONLINE MATIERIALS ---------------------------------------------------------------------------

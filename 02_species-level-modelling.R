@@ -160,8 +160,46 @@ Quantile_Parameters <- do.call(rbind, All_QGams$GamThermalNiche)
 
 # How many have non-significant estimates of Topt
 Quantile_Parameters[which(Quantile_Parameters$T_Gam_pvalue > 0.05),]
+# Fit the qgam models to a quantile of 0.95 -----
+
+# Fit qgams in dplyr. Each individual model fits independently 
+All_QGams_0.95 <- RLS_19 %>% group_by(SpeciesName) %>% do(GamThermalNiche = tryCatch(FitQuantileGam(., q = 0.95), error = function(e) NA))
+
+# Check for NAs. 
+NA_Models <- which(is.na(All_QGams_0.95$GamThermalNiche)) 
+All_QGams_0.95 <- All_QGams_0.95[-NA_Models, ]
+
+# Save the output object. 
+saveRDS(All_QGams_0.95, file = 'data_derived/All_QGams_0.95_2018-02-27.rds')
+
+# Obtain parameters from the quantile gam models. 
+Quantile_Parameters_0.95 <- do.call(rbind, All_QGams_0.95$GamThermalNiche)
+
+# How many have non-significant estimates of Topt
+Quantile_Parameters_0.95[which(Quantile_Parameters_0.95$T_Gam_pvalue > 0.05),]
+
 # Step 1. Load object created from the above code and run from 166:255 below ----
 All_QGams <- readRDS(file = 'data_derived/All_QGams_2018-02-27.rds')
+# Combine and plot estimates of Topt for SOM ----
+All_QGams_0.95 
+All_QGams
+Quantile_Parameters_0.95 <- do.call(rbind, All_QGams_0.95$GamThermalNiche)
+names(Quantile_Parameters_0.95) <- paste(names(Quantile_Parameters_0.95), '_95', sep = '')
+Quantile_Parameters <- do.call(rbind, All_QGams$GamThermalNiche)
+Quantile_Parameters <- Quantile_Parameters[which(Quantile_Parameters$SpeciesName %in% Quantile_Parameters_0.95$SpeciesName_95),]
+Quantile_Parameters_combined <- cbind(Quantile_Parameters_0.95, Quantile_Parameters)
+
+pdf('figure_final/SOM-comparison of quantiles.pdf', width = 5, height = 5)
+ggplot(Quantile_Parameters_combined) + 
+  geom_point(aes(x = Topt, y = Topt_95)) + 
+  theme_bw() + 
+  xlab(expression(paste(T["opt"], "  (0.8 quantile)"))) + 
+  ylab(expression(paste(T["opt"], "  (0.95 quantile)"))) + 
+  theme(aspect.ratio = 0.75, panel.grid.major = element_blank() , panel.grid.minor = element_blank())
+dev.off()
+
+cor.test(Quantile_Parameters_combined$Topt_95, Quantile_Parameters_combined$Topt, method = 'pearson')
+
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # DEFINING THERMAL GUILDS ----
@@ -1534,7 +1572,7 @@ table(ThermalNicheData_New$ConfidenceCombined)
 #RLS_Temp
 #RLS_Trop
 #ThermalNicheData_New # The main object created from this script.
-save.image(file = 'data_derived/objects-from-script-2.RData')
+#save.image(file = 'data_derived/objects-from-script-2.RData')
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
