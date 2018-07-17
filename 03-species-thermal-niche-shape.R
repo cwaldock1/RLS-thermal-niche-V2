@@ -31,7 +31,7 @@ load(file = 'data_derived/objects-from-script-2-05062018.RData')
 # ----------------------------------------------------------------------------
 
 # ANALYSIS OF SHAPE PATTERNS IN QGAMS AND 'ECOLOGICAL PERFORMANCE CURVES' ----
-# Extract model runs and predict curves from models ----
+# Extract model runs and predict curves from models for conf 3 ----
 
 # Finds the most recent model runs. 
 QuantileModels <- list.files('data_derived/qgam_outputs')
@@ -58,9 +58,32 @@ Conf3_Gams_Preds <- do.call(rbind, lapply(Conf3_Gams, function(x) x[2][[1]]))
 
 
 
+# Extract model runs and predict curves from models for all ----
+# Extract for all species
+AllSpecies <- gsub(' ', '_', ThermalNicheData_New$SpeciesName)
+
+# Extract the location within the vector for each model of a high-confidence species. 
+QuantileModels_AllSpecies <- do.call(rbind, lapply(AllSpecies, function(x) grep(x, QuantileModels)))
+
+# Subsets list of all models and returns file names of all relevant models. 
+qgamFiles_ConfAll <- QuantileModels[QuantileModels_AllSpecies]
+qgamFiles_ConfAll <- paste('data_derived/qgam_outputs/', qgamFiles_ConfAll, sep = '')
+
+# Create list of model outputs for all species. 
+All_Gams <- list()
+for(i in 1:length(qgamFiles_ConfAll)){ 
+  All_Gams[[i]] <- readRDS(file = qgamFiles_ConfAll[i])
+}
+
+# Extract predicitons from models and combine together (and deviance explained)
+All_Gams_Preds <- do.call(rbind, lapply(All_Gams, function(x) x[2][[1]]))
 
 
 
+
+# How many species have non-significant qgam? ---- 
+print(paste(round(-sum(ThermalNicheData_New$Conf_Qgam)/704*100,3), 'percent'))
+sum(ThermalNicheData_New$Conf_Qgam == 0)
 # Taken predictions and define abundance groups for both 25% and 50% thresholds ----
 
 # Define categories
@@ -68,6 +91,7 @@ Category_25 <- c()
 Abundance_percent_cool <- c()
 Abundance_percent_warm <- c()
 TG <- c() # Thermal guild for a subset. 
+
 for(i in 1:length(unique(HighConfidenceSpecies))){
   
   QGAMfunction <- Conf3_Gams_Preds %>% filter(SpeciesName == HighConfidenceSpecies[i])
@@ -244,6 +268,60 @@ table(Category_50)
 chisq.test(x = c(table(Category_50)))
 chisq.test(x = c(table(Category_50[Category_50 != 'No trend'])))
 
+# Take predictions and define abundance groups for 704 species ---- 
+
+Category_25_all <- c()
+Abundance_percent_cool_all <- c()
+Abundance_percent_warm_all <- c()
+TG <- c() # Thermal guild for a subset. 
+
+for(i in 1:length(unique(ThermalNicheData_New$SpeciesName))){
+  
+  QGAMfunction <- All_Gams_Preds %>% filter(SpeciesName == ThermalNicheData_New$SpeciesName[i])
+  RLS_Species <- RLS_All %>% filter(SpeciesName == ThermalNicheData_New$SpeciesName[i])
+  ThermalNicheData_Spp <- ThermalNicheData_New %>% filter(SpeciesName == ThermalNicheData_New$SpeciesName[i])
+  
+  # Extract abundance and scale
+  Abundance <- QGAMfunction$Abundance
+  Temp <- QGAMfunction$MeanSiteSST_NOAA
+  scaleAbundance <- Abundance/max(Abundance)
+  
+  TG[i] <- ThermalNicheData_Spp$ThermalGuild
+  
+  # No trend: mean percentage decline from peak model performance from 
+  MaxRaw <- log(ThermalNicheData_Spp$MaxAbundance + 1)
+  Warm_Drop <-1 - ( Abundance[100] / max(Abundance) )
+  Cool_Drop <-1 - ( Abundance[1] / max(Abundance) )
+  NoTrend_Percentage <- max(Cool_Drop, Warm_Drop)
+  NoTrend <- ifelse(NoTrend_Percentage > 0.25, FALSE, TRUE)
+  
+  # Ramped edges
+  WarmEdge <- 1 - scaleAbundance[100] # Amount of decline from max abun
+  ColdEdge <- 1 - scaleAbundance[1]   # Amount of decline from max abun
+  
+  Abundance_percent_warm_all[i] <- scaleAbundance[100] # Amount of decline from max abun
+  Abundance_percent_cool_all[i] <- scaleAbundance[1]   # Amount of decline from max abun
+  
+  # Test is edge falls by at least 25% of maximum. 
+  ColdEdgeRamp <- ifelse(ColdEdge > 0.25, FALSE, TRUE)
+  WarmEdgeRamp <- ifelse(WarmEdge > 0.25, FALSE, TRUE)
+  
+  # Test if both edges are ramped and therefore are at the centre. 
+  AbundanceCentre <- ifelse(ColdEdgeRamp == F & WarmEdgeRamp == F, TRUE, FALSE)
+  
+  AbundanceEdge   <- ifelse(AbundanceCentre == F & NoTrend == F, TRUE, FALSE)
+  
+  Categories <- c('No trend', 'Ramped cool-edge', 'Ramped warm-edge', 'Abundance centre', 'Abundance edge')
+  
+  if(NoTrend == T){ 
+    Category_25_all[i] <- 'No trend'
+  }else{
+    Category_25_all[i] <- Categories[which(c(NoTrend, ColdEdgeRamp, WarmEdgeRamp, AbundanceCentre, AbundanceEdge))]
+  }
+}
+
+table(Category_25_all)/704 # This value is less reliable because they inc. low conf spps where range edges may be poorly defined.
+
 # ----------------------------------------------------------------------------
 
 
@@ -365,7 +443,7 @@ GlobalModel_algae2 <- lmer(T_Skew ~
                              (1|Order / Family / Genus), data = ThermalNicheData_New_conf3)
 
 anova(GlobalModel_algae, GlobalModel_algae2, test = 'LRT') # No interaction between  algae association and Topt
-#Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+#                   Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
 #GlobalModel_algae2  9 260.46 286.74 -121.23   242.46                        
 #GlobalModel_algae  10 262.46 291.66 -121.23   242.46 1e-04      1     0.9932
 
@@ -400,11 +478,11 @@ anova(GlobalModel_algae2, GlobalModel_algae5, test="LRT") # Significant effect o
 # Remove taxonomy 
 GlobalModel_algae2_ML_nophylo <- lm(T_Skew ~  
                                       Topt * ThermalGuild + 
-                                      AlgalCover_Spp + ThermalGuild, data = ThermalNicheData_New_conf3, method = 'ML') # 
+                                      AlgalCover_Spp + ThermalGuild, data = ThermalNicheData_New_conf3) # 
 GlobalModel_algae2_ML <- lmer(T_Skew ~  
                                 Topt * ThermalGuild + 
                                 AlgalCover_Spp + ThermalGuild +
-                                (1|Order / Family / Genus), data = ThermalNicheData_New_conf3, method = 'ML') # 
+                                (1|Order / Family / Genus), data = ThermalNicheData_New_conf3, REML = F) # 
 # Taxonomic terms are not essential
 AICc(GlobalModel_algae2_ML_nophylo, GlobalModel_algae2_ML)
 
@@ -433,6 +511,8 @@ summary(GlobalModel_algae2)
 #ThermalGuildtropical      12.86423    1.56603   8.215
 #AlgalCover_Spp            -0.04261    0.01416  -3.009
 #Topt:ThermalGuildtropical -0.39104    0.06550  -5.970
+
+sum(-0.51780, -0.39104 ) # Tropical coefficient Topt
 
 r.squaredGLMM(GlobalModel_algae2)
 # R2m       R2c 
@@ -506,6 +586,7 @@ ggplot() +
   scale_x_continuous(breaks = seq(round(min(ModelGlobal_Pred$Topt)), round(max(ModelGlobal_Pred$Topt)), by = 2))
 dev.off()
 
+
 # Plot of distribution limits for 'FIGURE 2' ---- 
 pdf(file = 'figure_final/Topt_ThermalRange_Comparisons.pdf', width = 5, height = 5, useDingbats = F)
 ggplot() + 
@@ -546,6 +627,53 @@ ggplot() +
   ylab('Realized niche edges (°C)') +
   scale_x_continuous(breaks = seq(round(min(ModelGlobal_Pred$Topt)), round(max(ModelGlobal_Pred$Topt)), by = 2))
 dev.off()
+
+
+# No points for presentation figure. 
+pdf(file = 'figure_final/Topt_ThermalRange_Comparisons_NOPOINTS2.pdf', width = 5, height = 5, useDingbats = F)
+ggplot() + 
+  
+  geom_abline() + 
+  geom_abline(intercept = 3, lty = 2, size = 1, col = 'gray') + 
+  geom_abline(intercept = -3, lty = 1, size = 1, col = 'gray') + 
+  
+  
+  #geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+  #               aes(x = Topt, ymax = T_Upper, ymin = Topt), colour = 'darkblue', alpha = 1, size = 0.2) + 
+  #geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+  #           aes(x = Topt, y = T_Upper), colour = 'white', alpha = 1, size = 3, pch = 21, fill = 'white') + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+              aes(x = Topt, y = T_Upper), colour = 'black', alpha = 1, method = lm, lty = 2, se = F) + 
+  
+  #geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'),  
+  #               aes(x = Topt, ymax = T_Upper, ymin = Topt), colour = 'dark orange', alpha = 1, size = 0.2) + 
+  #geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+  #           aes(x = Topt, y = T_Upper), colour = 'white', alpha = 1, size = 3, pch = 21, fill = 'white') + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+              aes(x = Topt, y = T_Upper), colour = 'black', alpha = 1, method = lm, lty = 2, se = F) + 
+  
+  
+  #geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+  #               aes(x = Topt, ymin = T_Lower, ymax = Topt), colour = 'darkblue', alpha = 1, size = 0.2) + 
+  #geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+  #           aes(x = Topt, y = T_Lower), colour = 'white', alpha = 1, size = 3) + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'temperate'),  
+              aes(x = Topt, y = T_Lower), colour = 'black', alpha = 1, method = lm, se = F) + 
+  
+  #geom_linerange(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'),  
+  #               aes(x = Topt, ymin = T_Lower, ymax = Topt), colour = 'dark orange', alpha = 1, size = 0.2) + 
+  #geom_point(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+  #           aes(x = Topt, y = T_Lower), colour = 'white', alpha = 1, size = 3) + 
+  stat_smooth(data = ThermalNicheData_New_conf3 %>% filter(ThermalGuild == 'tropical'), 
+              aes(x = Topt, y = T_Lower), colour = 'black', alpha = 1, method = lm, se = F) + 
+  
+  
+  theme_classic() + theme(text = element_text(size = 15), aspect.ratio = 0.6) + 
+  xlab(expression(T["opt"]))+ 
+  ylab('Realized niche edges (°C)') +
+  scale_x_continuous(breaks = seq(round(min(ModelGlobal_Pred$Topt)), round(max(ModelGlobal_Pred$Topt)), by = 2))
+dev.off()
+
 # Plot skew examples for 'FIGURE 2' ---- 
 GaussianFunction <- function(Topt = Topt, TUpper = TUpper, Tsd = Tsd, Tsd_2 = Tsd_2, MaxPerformance = MaxPerformance){
   
@@ -605,10 +733,10 @@ Labels <- rbind(Trop_MaxSkew_V2_label, Trop_MaxSkew_warm_label, Temp_MinSkew_V2_
 
 pdf('figure_final/Figure2-skew-examples.pdf', width = 5, height = 5)
 ggplot() + 
-  geom_ribbon(data = Trop_MaxSkew_warm, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.5, col = 'dark orange', fill = 'gray75') + 
-  geom_ribbon(data = Temp_MinSkew_cool, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.5, col = 'darkblue', fill = 'gray75') + 
-  geom_ribbon(data = Trop_MaxSkew, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, fill = 'dark orange') +
-  geom_ribbon(data = Temp_MinSkew, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, fill = 'darkblue') + 
+  geom_ribbon(data = Trop_MaxSkew_warm, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, col = 'dark orange', fill = 'gray75', size = 1.2) + 
+  geom_ribbon(data = Temp_MinSkew, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, fill = 'gray75', col = 'darkblue', size = 1.2) + 
+  geom_ribbon(data = Temp_MinSkew_cool, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, col = 'darkblue', fill = 'white', size = 1.2) + 
+  geom_ribbon(data = Trop_MaxSkew, aes(x = Temp, ymin = 0, ymax = Performance/MaxPerformance), alpha = 0.75, fill = 'white', col = 'dark orange', size = 1.2) +
   geom_text(data = Labels[1:2,], aes(x = Topt, y=c(1.1, 1.05), label = SpeciesName), size = 2.5, colour = 'dark orange', fontface='italic') + 
   geom_text(data = Labels[3:4,], aes(x = Topt, y=c(1.05, 1.1), label = SpeciesName), size = 2.5, colour = 'darkblue', fontface='italic') + 
   xlim(12, 33) +
@@ -1392,7 +1520,7 @@ dataframes2xls::write.xls(c(ThermalNiche_refined, Column_descriptions), "data_de
 
 # Save progress ----
 #save.image('data_derived/script3_save-image.RData')
-#load('data_derived/script3_save-image.RData')
+load('data_derived/script3_save-image.RData')
 # ----
 
 

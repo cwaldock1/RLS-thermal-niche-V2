@@ -363,6 +363,10 @@ TempData_JAGS <- RLS_All_JAGS %>% filter(ThermalGuild == 'temperate') #%>% filte
 TropData_JAGS <- RLS_All_JAGS %>% filter(ThermalGuild == 'tropical')  #%>% filter(AbundanceAdult40 > 0)
 AllData_JAGS <- rbind(TropData_JAGS, TempData_JAGS)
 
+# What is the mean and sd of abundances when standardised in this way? 
+mean(AllData_JAGS$ScaledLogAbundanceAdult40[AllData_JAGS$ScaledLogAbundanceAdult40 != 0])
+sd(AllData_JAGS$ScaledLogAbundanceAdult40[AllData_JAGS$ScaledLogAbundanceAdult40 != 0])
+
 
 # ----------------------------------------------------------------------------
 
@@ -379,8 +383,8 @@ AllJAGS_0.99 <- RunJAGSModels(modeldata = AllData_JAGS,
                               n.chains   = 4,
                               n.burnin   = 2500,
                               n.iter     = 10000)
-saveRDS(AllJAGS_0.99, 'data_derived/jagsmodels/AllJAGS_0.99.rds')
-#AllJAGS_0.99 <- readRDS('data_derived/jagsmodels/AllJAGS_0.99.rds')
+#saveRDS(AllJAGS_0.99, 'data_derived/jagsmodels/AllJAGS_0.99.rds')
+AllJAGS_0.99 <- readRDS('data_derived/jagsmodels/AllJAGS_0.99.rds')
 
 # Summary statistic for above model 
 round(AllJAGS_0.99$models[[1]]$BUGSoutput$summary['T_Opt',], 3)
@@ -395,6 +399,29 @@ AllJAGS_0.99$models[[1]]$BUGSoutput$pD
 AllJAGS_0.99_mcmc <- AllJAGS_0.99$models[[1]]
 AllJAGS_0.99_mcmc <- MCMCchains(AllJAGS_0.99_mcmc, params = c("T_Opt", "T_SD", "T_SD_2", "MaxAbun", "Skew", "T_Breadth"), mcmc.list = T)
 MCMCtrace(AllJAGS_0.99_mcmc)
+
+
+
+
+# Filter to subset that will produce more conservative estimates of R2. 
+AllData_JAGS_subset <- AllData_JAGS %>% filter(Species_MeanSiteSST_NOAA > -2 & Species_MeanSiteSST_NOAA < 2)
+
+AllJAGS_0.99_conservative <- RunJAGSModels(modeldata = AllData_JAGS_subset,
+                              params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var", "R_squared"),
+                              Quantile = c(0.99),
+                              Subset = 'Quantile 0.99', # Define which subset we are talking about
+                              ThermalGuild = 'tropical', 
+                              Scale = 'Species', 
+                              n.thin     = 5, 
+                              n.chains   = 4,
+                              n.burnin   = 2500,
+                              n.iter     = 10000)
+saveRDS(AllJAGS_0.99_conservative, 'data_derived/jagsmodels/AllJAGS_0.99_conservative.rds')
+#AllJAGS_0.99 <- readRDS('data_derived/jagsmodels/AllJAGS_0.99.rds')
+
+# Summary statistic for above model 
+round(AllJAGS_0.99_conservative$models[[1]]$BUGSoutput$summary['R_squared',], 3)
+
 
 
 # TropJAGS_0.99 ----
@@ -465,9 +492,29 @@ AllJAGS_0.99_Aggregated <- RunJAGSModels(modeldata = AllData_JAGS,
                                          n.chains   = 4,
                                          n.burnin   = 2500,
                                          n.iter     = 10000)
-saveRDS(AllJAGS_0.99_Aggregated , 'data_derived/jagsmodels/AllJAGS_0.99_Aggregated.rds')
+#saveRDS(AllJAGS_0.99_Aggregated , 'data_derived/jagsmodels/AllJAGS_0.99_Aggregated.rds')
+AllJAGS_0.99_Aggregated <- readRDS('data_derived/jagsmodels/AllJAGS_0.99_Aggregated.rds')
 
 round(AllJAGS_0.99_Aggregated$models[[1]]$BUGSoutput$summary['R_squared',], 3)
+
+
+
+# Provide conservative 
+AllJAGS_0.99_Aggregated_conservative <- RunJAGSModels(modeldata = AllData_JAGS_subset,
+                                         params = c("T_Opt", "T_SD", "T_SD_2", "T_Upper", "E", "y", 'YMax', "MaxAbun","Skew","T_Breadth", "Var", "R_squared"),
+                                         Quantile = c(0.99),
+                                         Subset = 'Quantile 0.99', # Define which subset we are talking about
+                                         ThermalGuild = 'tropical', 
+                                         Scale = 'Aggregated', 
+                                         n.thin     = 5, 
+                                         n.chains   = 4,
+                                         n.burnin   = 2500,
+                                         n.iter     = 10000)
+saveRDS(AllJAGS_0.99_Aggregated_conservative , 'data_derived/jagsmodels/AllJAGS_0.99_Aggregated_conservative.rds')
+#AllJAGS_0.99_Aggregated_conservative <- readRDS('data_derived/jagsmodels/AllJAGS_0.99_Aggregated_conservative.rds')
+
+round(AllJAGS_0.99_Aggregated_conservative$models[[1]]$BUGSoutput$summary['R_squared',], 3)
+
 
 # TropJAGS_0.99 aggregation ----
 TropJAGS_0.99_Aggregated <- RunJAGSModels(modeldata = TropData_JAGS,
@@ -537,8 +584,8 @@ TropJAGS_0.99_ABUN <- RunJAGSModels(modeldata = TropData_JAGS %>% filter(Abundan
                                     n.chains   = 4,
                                     n.burnin   = 2500,
                                     n.iter     = 10000)
-saveRDS(TropJAGS_0.99_ABUN, 'data_derived/jagsmodels/TropJAGS_0.99_ABUN.rds')
-#TropJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TropJAGS_0.99_ABUN.rds')
+#saveRDS(TropJAGS_0.99_ABUN, 'data_derived/jagsmodels/TropJAGS_0.99_ABUN.rds')
+TropJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TropJAGS_0.99_ABUN.rds')
 
 round(TropJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Opt',], 3)
 round(TropJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Breadth',], 3)
@@ -559,8 +606,8 @@ TempJAGS_0.99_ABUN <- RunJAGSModels(modeldata = TempData_JAGS %>% filter(Abundan
                                     n.chains   = 4,
                                     n.burnin   = 2500,
                                     n.iter     = 10000)
-saveRDS(TempJAGS_0.99_ABUN, 'data_derived/jagsmodels/TempJAGS_0.99_ABUN.rds')
-#TempJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TempJAGS_0.99_ABUN.rds')
+#saveRDS(TempJAGS_0.99_ABUN, 'data_derived/jagsmodels/TempJAGS_0.99_ABUN.rds')
+TempJAGS_0.99_ABUN <- readRDS('data_derived/jagsmodels/TempJAGS_0.99_ABUN.rds')
 
 round(TempJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Opt',], 3)
 round(TempJAGS_0.99_ABUN$models[[1]]$BUGSoutput$summary['T_Breadth',], 3)
@@ -595,7 +642,10 @@ TropJAGS_0.99_ABUN_AGG <- RunJAGSModels(modeldata = TropData_JAGS %>% filter(Abu
                                         n.chains   = 4,
                                         n.burnin   = 2500,
                                         n.iter     = 10000)
-saveRDS(TropJAGS_0.99_ABUN_AGG, 'data_derived/jagsmodels/TropJAGS_0.99_ABUN_AGG.rds')
+# saveRDS(TropJAGS_0.99_ABUN_AGG, 'data_derived/jagsmodels/TropJAGS_0.99_ABUN_AGG.rds')
+TropJAGS_0.99_ABUN_AGG <- readRDS('data_derived/jagsmodels/TropJAGS_0.99_ABUN_AGG.rds')
+
+round(TropJAGS_0.99_ABUN_AGG$models[[1]]$BUGSoutput$summary['R_squared',], 3)
 
 
 # TempJAGS_0.99_ABUN_AGG ----
@@ -610,6 +660,9 @@ TempJAGS_0.99_ABUN_AGG <- RunJAGSModels(modeldata = TempData_JAGS %>% filter(Abu
                                         n.burnin   = 2500,
                                         n.iter     = 10000)
 saveRDS(TempJAGS_0.99_ABUN_AGG, 'data_derived/jagsmodels/TempJAGS_0.99_ABUN_AGG.rds')
+TempJAGS_0.99_ABUN_AGG <- readRDS('data_derived/jagsmodels/TempJAGS_0.99_ABUN_AGG.rds')
+
+round(TempJAGS_0.99_ABUN_AGG$models[[1]]$BUGSoutput$summary['R_squared',], 3)
 
 
 # ----------------------------------------------------------------------------
@@ -647,8 +700,8 @@ TropJAGS_OCC <- RunJAGSModels_OCC(modeldata = TropData_JAGS,
                                   n.chains   = 4,
                                   n.burnin   = 2500,
                                   n.iter     = 10000)
-saveRDS(TropJAGS_OCC, 'data_derived/jagsmodels/TropJAGS_OCC.rds')
-#TropJAGS_OCC <- readRDS('data_derived/jagsmodels/TropJAGS_OCC.rds')
+#saveRDS(TropJAGS_OCC, 'data_derived/jagsmodels/TropJAGS_OCC.rds')
+TropJAGS_OCC <- readRDS('data_derived/jagsmodels/TropJAGS_OCC.rds')
 
 
 round(TropJAGS_OCC$models$BUGSoutput$summary['T_Opt',], 3)
@@ -669,8 +722,8 @@ TempJAGS_OCC <- RunJAGSModels_OCC(modeldata = TempData_JAGS,
                                   n.chains   = 4,
                                   n.burnin   = 2500,
                                   n.iter     = 10000)
-saveRDS(TempJAGS_OCC, 'data_derived/jagsmodels/TempJAGS_OCC.rds')
-#TempJAGS_OCC <- readRDS('data_derived/jagsmodels/TempJAGS_OCC.rds')
+#saveRDS(TempJAGS_OCC, 'data_derived/jagsmodels/TempJAGS_OCC.rds')
+TempJAGS_OCC <- readRDS('data_derived/jagsmodels/TempJAGS_OCC.rds')
 
 round(TempJAGS_OCC$models$BUGSoutput$summary['T_Opt',], 3)
 round(TempJAGS_OCC$models$BUGSoutput$summary['T_Breadth',], 3)
@@ -705,7 +758,8 @@ TropJAGS_OCC_AGG <- RunJAGSModels_OCC(modeldata = TropData_JAGS,
                                       n.chains   = 4,
                                       n.burnin   = 2500,
                                       n.iter     = 10000)
-saveRDS(TropJAGS_OCC_AGG, 'data_derived/jagsmodels/TropJAGS_OCC_AGG.rds')
+#saveRDS(TropJAGS_OCC_AGG, 'data_derived/jagsmodels/TropJAGS_OCC_AGG.rds')
+TropJAGS_OCC_AGG <- readRDS('data_derived/jagsmodels/TropJAGS_OCC_AGG.rds')
 
 round(TropJAGS_OCC_AGG$models$BUGSoutput$summary['R_squared',], 4)
 
@@ -719,7 +773,8 @@ TempJAGS_OCC_AGG <- RunJAGSModels_OCC(modeldata = TempData_JAGS,
                                       n.chains   = 4,
                                       n.burnin   = 2500,
                                       n.iter     = 10000)
-saveRDS(TempJAGS_OCC_AGG, 'data_derived/jagsmodels/TempJAGS_OCC_AGG.rds')
+#saveRDS(TempJAGS_OCC_AGG, 'data_derived/jagsmodels/TempJAGS_OCC_AGG.rds')
+TempJAGS_OCC_AGG <- readRDS('data_derived/jagsmodels/TempJAGS_OCC_AGG.rds')
 
 round(TempJAGS_OCC_AGG$models$BUGSoutput$summary['R_squared',], 4)
 

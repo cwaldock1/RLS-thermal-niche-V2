@@ -13,7 +13,16 @@
 
 # PREAMBLE ----
 # Load data from 01_organising-data.R ----
-load(file = 'data_derived/01_organising-data_SAVE-IMAGE.RData') 
+
+# Old file upload with more objects
+# load(file = 'data_derived/01_organising-data_SAVE-IMAGE.RData') 
+# rm(MaximumAbundance, RLS_HighConfidence_Species, RLS_LowConfidence_Species, RLS11, RLS12, RLS12_DT, RLS13_DT, RLS14, RLS14_DT, RLS15, RLS_Site_Covariates)
+
+# Saved only RLS19 which is necessary for this script. 
+#save.image(file = 'data_derived/01-organsiing-data05072018.RData')
+#load(file = 'data_derived/01-organsiing-data05072018.RData')
+
+
 
 # Load libraries and packages ----
 
