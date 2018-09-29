@@ -20,19 +20,7 @@ library(geosphere)
 library(rgeos)
 library(data.table)
 library(summarytools)
-#library(qgam)
-#library(glmmTMB)
-#library(R2jags)
-#library(gridExtra)
-#library(MuMIn)
-#library(remef) # Creation of partial residual plots
-#source(file = "/Users/caw1g15/Dropbox/PhD Plans and Courses/Courses/Highland Statistics Mixed Modelling and GLMM/Highland Statistics Mixed Modelling and GLMM/MCMCSupportHighstatV4.R")
-#source('/Users/caw1g15/Dropbox/PhD Plans and Courses/Courses/Highland Statistics Mixed Modelling and GLMM/Highland Statistics Mixed Modelling and GLMM/HighstatLibV10.R')
-### 
-
-
-
-
+library(sp)
 ### Read in raw RLS data and preliminary cleaning ---- 
 RLS  <- as_data_frame(read.csv('data_raw/RLS_GLOBAL_ABUND_BIOMASS_20170507.csv')) # nrow = 587,840
 
@@ -270,8 +258,6 @@ RLS5_DT_2 <- RLS5_DT[, j = list(AbundanceAdult40 = sum(AbundanceAdult40, na.rm =
 
 RLS6 <- as_data_frame(RLS5_DT_2)
 
-
-
 ### Estimate first set of quality controls (Max abundance at block level is > 3)  ---- 
 
 # Remove hanging objects
@@ -304,45 +290,56 @@ RLS7$Latitude.1 <- round(RLS7$SiteLat)
 RLS7$Longitude.1 <- round(RLS7$SiteLong)
 
 # Read in site temperature data from NOAA
-SiteTemperature <- as_data_frame(read.csv(file = 'data_raw/SiteTemperatureValuesRLS_04_09_2017.csv')) %>% select(-X)
-SiteTemperature$Latitude.1 <- SiteTemperature$Latitude;SiteTemperature$Latitude<-NULL
-SiteTemperature$Longitude.1 <- SiteTemperature$Longitude;SiteTemperature$Longitude<-NULL
+#SiteTemperature <- as_data_frame(read.csv(file = 'data_raw/SiteTemperatureValuesRLS_04_09_2017.csv')) %>% select(-X)
+#SiteTemperature$Latitude.1 <- SiteTemperature$Latitude;SiteTemperature$Latitude<-NULL
+#SiteTemperature$Longitude.1 <- SiteTemperature$Longitude;SiteTemperature$Longitude<-NULL
+
+# Load in temperature data from coral watch that has been aggregated to 2 year average at 0.05° resolution from daily estimates. 
+CoralWatch <- as_data_frame(read.csv(file = 'data_derived/RLS_Temperature_CoralWatch0.05.csv')) %>% dplyr::select(-X)
+CoralWatch$Latitude  <- NULL
+CoralWatch$Longitude <- NULL
+CoralWatch <- dplyr::rename(CoralWatch, 
+                            MeanTemp_CoralWatch = MeanTemp,
+                            MinTemp_CoralWatch = MinTemp, 
+                            MaxTemp_CoralWatch = MaxTemp,  
+                            SDTemp_CoralWatch = SDTemp)
 
 # Join in site temperature data and RLS data. 
-RLS8 <- left_join(RLS7, SiteTemperature)
+#RLS8 <- left_join(RLS7, SiteTemperature)
+RLS8 <- left_join(RLS7, CoralWatch)
 
 # Rename for mergeing
 RLS8 <- dplyr::rename(RLS8, Latitude = SiteLat, Longitude = SiteLong)
 
 # Read in covariates and warming rate data
-WarmingRates <- read.csv(file = 'data_raw/RLSWarmingRate_04_09_2017.csv') %>% select(-X, -Latitude, -Longitude)
-RLS_Site_Covariates <- as_data_frame(read.csv(file = 'data_raw/RLS_Site_Covariates_V2.csv')) %>% dplyr::select(-X)
-RLS_Site_Covariates <- dplyr::rename(RLS_Site_Covariates, Latitude = lat, Longitude = long)
+#WarmingRates <- read.csv(file = 'data_raw/RLSWarmingRate_04_09_2017.csv') %>% select(-X, -Latitude, -Longitude)
+#RLS_Site_Covariates <- as_data_frame(read.csv(file = 'data_raw/RLS_Site_Covariates_V2.csv')) %>% dplyr::select(-X)
+#RLS_Site_Covariates <- dplyr::rename(RLS_Site_Covariates, Latitude = lat, Longitude = long)
 
 # Rescale to log 
-RLS_Site_Covariates$HumPop50km2 <- log10(RLS_Site_Covariates$HumPop50km2 + 1) 
-RLS_Site_Covariates$ReefAreaIn15km <- log10(RLS_Site_Covariates$ReefAreaIn15km + 1)
+#RLS_Site_Covariates$HumPop50km2 <- log10(RLS_Site_Covariates$HumPop50km2 + 1) 
+#RLS_Site_Covariates$ReefAreaIn15km <- log10(RLS_Site_Covariates$ReefAreaIn15km + 1)
 
 # Join with RLS data
-RLS8 <- left_join(RLS8, RLS_Site_Covariates)
-RLS8 <- left_join(RLS8, na.omit(WarmingRates))
+#RLS8 <- left_join(RLS8, RLS_Site_Covariates)
+#RLS8 <- left_join(RLS8, na.omit(WarmingRates))
 
 
 ### Create sampling intensity column ---- 
 
 # Round temperature data and assess number of samples per °C for each species. 
-RLS8$MeanSiteSST_NOAA_ROUNDED <- round(RLS8$MeanSiteSST_NOAA)
+RLS8$MeanTemp_CoralWatch_ROUNDED <- round(RLS8$MeanTemp_CoralWatch)
 
 # Count number of samples per temperature band. 
-SamplingIntensityTemps  <- RLS8 %>% group_by(SpeciesName) %>% nest() %>% mutate(TemperatureTable = purrr::map(data, ~data.frame(table(.$MeanSiteSST_NOAA_ROUNDED))))
+SamplingIntensityTemps  <- RLS8 %>% group_by(SpeciesName) %>% nest() %>% mutate(TemperatureTable = purrr::map(data, ~data.frame(table(.$MeanTemp_CoralWatch_ROUNDED))))
 
 # Handle sampling intensity data. 
 SamplingIntensityTemps2 <- SamplingIntensityTemps %>% unnest(TemperatureTable) %>% dplyr::rename(., 
-                                                                                                 MeanSiteSST_NOAA_ROUNDED = Var1, 
+                                                                                                 MeanTemp_CoralWatch_ROUNDED = Var1, 
                                                                                                  SamplingIntensity = Freq)
 
 # Convert to numeric
-SamplingIntensityTemps2$MeanSiteSST_NOAA_ROUNDED <- SamplingIntensityTemps2$MeanSiteSST_NOAA_ROUNDED %>% as.numeric()
+SamplingIntensityTemps2$MeanTemp_CoralWatch_ROUNDED <- SamplingIntensityTemps2$MeanTemp_CoralWatch_ROUNDED %>% as.numeric()
 
 RLS11 <- left_join(RLS8, SamplingIntensityTemps2)
 
@@ -352,27 +349,35 @@ RLS11 <- left_join(RLS8, SamplingIntensityTemps2)
 rm(RLS10, RLS8, RLS6, RLS7, SpeciesMeanTemps, WarmingRates, SiteTemperature, SamplingIntensityTemps, SamplingIntensityTemps2)
 
 # Take columns of interest. Scaled columns are actually removed here so there is some redundancy in the above code. 
-RLS12 <- RLS11 %>% dplyr::select(SpeciesName, Block, SurveyID, SiteCode, ECOregion, AbundanceAdult40, SamplingIntensity,
-                                 ReefAreaIn15km, HumPop50km2, npp_mean, MeanSiteSST_NOAA)
+RLS12 <- RLS11 %>% dplyr::select(SpeciesName, Block, SurveyID, SiteCode, ECOregion, AbundanceAdult40, SamplingIntensity, 
+                                 MeanTemp_CoralWatch, MinTemp_CoralWatch, MaxTemp_CoralWatch, SDTemp_CoralWatch)
 
 # Sum abundance data across sampling blocks. 
 RLS12_DT <- data.table(RLS12)
 setkey(RLS12_DT, SpeciesName, SurveyID, SiteCode)
 RLS13_DT <- RLS12_DT[ ,.(AbundanceAdult40 = sum(AbundanceAdult40),
                          SamplingIntensity = mean(SamplingIntensity, na.rm = T),
-                         ReefAreaIn15km = mean(ReefAreaIn15km, na.rm = T),
-                         HumPop50km2 = mean(HumPop50km2, na.rm = T),
-                         npp_mean = mean(npp_mean, na.rm = T),
-                         MeanSiteSST_NOAA = mean(MeanSiteSST_NOAA, na.rm = T)), key = key(RLS12_DT)]
+                         #ReefAreaIn15km = mean(ReefAreaIn15km, na.rm = T),
+                         #HumPop50km2 = mean(HumPop50km2, na.rm = T),
+                         #npp_mean = mean(npp_mean, na.rm = T),
+                         MeanTemp_CoralWatch = mean(MeanTemp_CoralWatch, na.rm = T), 
+                         MinTemp_CoralWatch = mean(MinTemp_CoralWatch, na.rm = T), 
+                         MaxTemp_CoralWatch = mean(MaxTemp_CoralWatch, na.rm = T),
+                         SDTemp_CoralWatch = mean(SDTemp_CoralWatch, na.rm = T)), 
+                      key = key(RLS12_DT)]
 
 # Average abundance data across sampling surveyIDs
 setkey(RLS13_DT, SpeciesName, SiteCode)
 RLS14_DT <- RLS13_DT[ ,.(AbundanceAdult40 = ceiling(mean(AbundanceAdult40, na.rm = T)),
                          SamplingIntensity = mean(SamplingIntensity, na.rm = T),
-                         ReefAreaIn15km = mean(ReefAreaIn15km, na.rm = T),
-                         HumPop50km2 = mean(HumPop50km2, na.rm = T),
-                         npp_mean = mean(npp_mean, na.rm = T),
-                         MeanSiteSST_NOAA = mean(MeanSiteSST_NOAA, na.rm = T)), key = key(RLS13_DT)]
+                         #ReefAreaIn15km = mean(ReefAreaIn15km, na.rm = T),
+                         #HumPop50km2 = mean(HumPop50km2, na.rm = T),
+                         #npp_mean = mean(npp_mean, na.rm = T),
+                         MeanTemp_CoralWatch = mean(MeanTemp_CoralWatch, na.rm = T), 
+                         MinTemp_CoralWatch = mean(MinTemp_CoralWatch, na.rm = T), 
+                         MaxTemp_CoralWatch = mean(MaxTemp_CoralWatch, na.rm = T),
+                         SDTemp_CoralWatch = mean(SDTemp_CoralWatch, na.rm = T)), 
+                      key = key(RLS13_DT)]
 
 RLS14 <- as_data_frame(RLS14_DT)
 
@@ -385,13 +390,14 @@ RLS15 <- left_join(RLS14, RLS12 %>% dplyr::select(SpeciesName, SiteCode, ECOregi
 
 # Check and remove NAs. 
 colSums(is.na(RLS15))
-RLS15 <- RLS15[!is.na(RLS15$ReefAreaIn15km), ]
-RLS15 <- RLS15[!is.na(RLS15$HumPop50km2), ]
-RLS15 <- RLS15[!is.na(RLS15$npp_mean), ]
+#RLS15 <- RLS15[!is.na(RLS15$ReefAreaIn15km), ]
+#RLS15 <- RLS15[!is.na(RLS15$HumPop50km2), ]
+#RLS15 <- RLS15[!is.na(RLS15$npp_mean), ]
+RLS15 <- RLS15[!is.na(RLS15$MeanTemp_CoralWatch), ]
 colSums(is.na(RLS15))
 
 # Explore site level covariate correlations 
-#MyVar <- c('ReefAreaIn15km', 'HumPop50km2', 'npp_mean', 'MeanSiteSST_NOAA')
+#MyVar <- c('ReefAreaIn15km', 'HumPop50km2', 'npp_mean', 'MeanTemp_CoralWatch')
 #Covs <- unique(RLS15[,MyVar])
 #Mydotplot(log(Covs)) # Function sourced from Zurr code from course (load entire script)
 #corvif(Covs)  # Not much problem here. 
@@ -454,8 +460,8 @@ RLS18 <- RLS17 %>%
   filter(AbundanceAdult40 > 0) %>% 
   group_by(SpeciesName) %>% 
   nest() %>% 
-  mutate(T_Upper_Obs = purrr::map(data, ~quantile(.$MeanSiteSST_NOAA, 0.99)),
-         T_Lower_Obs = purrr::map(data, ~quantile(.$MeanSiteSST_NOAA, 0.01))) %>% 
+  mutate(T_Upper_Obs = purrr::map(data, ~quantile(.$MeanTemp_CoralWatch, 0.99)),
+         T_Lower_Obs = purrr::map(data, ~quantile(.$MeanTemp_CoralWatch, 0.01))) %>% 
   unnest(T_Upper_Obs, T_Lower_Obs) %>% 
   group_by(SpeciesName) %>% 
   nest() %>% 
@@ -479,23 +485,24 @@ RLS18_V2 <- RLS18 %>%
   nest() %>% 
   
   # Estimate upper and lower limits
-  mutate(T_Upper_Obs = purrr::map(data, ~max(.$MeanSiteSST_NOAA)),
-         T_Lower_Obs = purrr::map(data, ~min(.$MeanSiteSST_NOAA)), 
-         T_Mean_Obs  = purrr::map(data, ~ mean(.$MeanSiteSST_NOAA, na.rm = T))) %>% 
+  mutate(T_Upper_Obs = purrr::map(data, ~max(.$MeanTemp_CoralWatch)),
+         T_Lower_Obs = purrr::map(data, ~min(.$MeanTemp_CoralWatch)), 
+         T_Mean_Obs  = purrr::map(data, ~ mean(.$MeanTemp_CoralWatch, na.rm = T))) %>% 
   unnest(T_Upper_Obs, T_Lower_Obs, T_Mean_Obs) %>% ungroup() %>% select(-data) %>% left_join(RLS18, ., by = 'SpeciesName') %>% 
   
   # Count number of rows > 0 above and below these limits. 
   group_by(SpeciesName) %>% 
   nest() %>% 
-  mutate(N_Absences_T_Upper = purrr::map(data, ~nrow(.[which(.$MeanSiteSST_NOAA >= .$T_Upper_Obs), ] %>% filter(AbundanceAdult40 == 0))),
-         N_Absences_T_Lower = purrr::map(data, ~nrow(.[which(.$MeanSiteSST_NOAA <= .$T_Lower_Obs), ] %>% filter(AbundanceAdult40 == 0)))) %>% 
+  mutate(N_Absences_T_Upper = purrr::map(data, ~nrow(.[which(.$MeanTemp_CoralWatch >= .$T_Upper_Obs), ] %>% filter(AbundanceAdult40 == 0))),
+         N_Absences_T_Lower = purrr::map(data, ~nrow(.[which(.$MeanTemp_CoralWatch <= .$T_Lower_Obs), ] %>% filter(AbundanceAdult40 == 0)))) %>% 
   unnest(N_Absences_T_Upper, N_Absences_T_Lower) %>% ungroup() %>% select(-data) %>% left_join(RLS18, ., by = 'SpeciesName')
 
-hist(log(RLS18_V2$N_Absences_T_Upper + 1))
-hist(log(RLS18_V2$N_Absences_T_Lower + 1)) # On average there are far fewer species with poorly estimated cold thermal limits than upper limits. 
+# Most species have well estimated samples below limit, but fewer samples above thermal limit. 
+hist(log(RLS18_V2 %>% select(SpeciesName, N_Absences_T_Upper) %>% unique() %>% .$N_Absences_T_Upper + 1))
+hist(log(RLS18_V2 %>% select(SpeciesName, N_Absences_T_Lower) %>% unique() %>% .$N_Absences_T_Lower + 1))
 
 # Mean temperature of species with upper limits that cannot be estimated. 
-RLS18_V2 %>% filter(N_Absences_T_Upper == 0) %>% .$MeanSiteSST_NOAA %>% mean
+RLS18_V2 %>% filter(N_Absences_T_Upper == 0) %>% .$MeanTemp_CoralWatch %>% mean
 
 # Create confidence scores for these parameters. 
 RLS18_V2$Confidence_Occ_Tupper  <-NA
@@ -509,38 +516,32 @@ RLS18_V2 <- RLS18_V2 %>%
   group_by(SpeciesName) %>% 
   nest() %>% 
   # Estimate upper and lower limits
-  mutate(T_Upper_Absences = purrr::map(data, ~max(.$MeanSiteSST_NOAA)),
-         T_Lower_Absences = purrr::map(data, ~min(.$MeanSiteSST_NOAA)), 
-         T_Mean_Absences  = purrr::map(data, ~ mean(.$MeanSiteSST_NOAA))) %>% 
+  mutate(T_Upper_Absences = purrr::map(data, ~max(.$MeanTemp_CoralWatch)),
+         T_Lower_Absences = purrr::map(data, ~min(.$MeanTemp_CoralWatch)), 
+         T_Mean_Absences  = purrr::map(data, ~ mean(.$MeanTemp_CoralWatch))) %>% 
   unnest(T_Upper_Absences, T_Lower_Absences, T_Mean_Absences) %>% ungroup() %>% select(-data) %>% left_join(RLS18_V2, ., by = 'SpeciesName')
 
-# 1650 species with low confidence scores. 
+# 1,653 species with low confidence scores. 
 RLS_LowConfidence_Species  <- unique(RLS18_V2[which(RLS18_V2$Confidence_NObs  != 3 | RLS18_V2$Confidence_TRange_Obs != 3), 'SpeciesName'])
-# 705 species with high confidence scores. 
+# 702 species with high confidence scores. 
 RLS_HighConfidence_Species <- unique(RLS18_V2[-which(RLS18_V2$Confidence_NObs != 3 | RLS18_V2$Confidence_TRange_Obs != 3), 'SpeciesName'])
 
 # Filter RLS data into two streams. Low confidence and high confidence. 
 RLS_LowConfidence <- RLS18 %>% filter(SpeciesName %in% RLS_LowConfidence_Species$SpeciesName) # 616,949 observations
-saveRDS(RLS_LowConfidence, file = 'data_derived/RLS_LowConfidence_Species_2017-03-27.rds')
+saveRDS(RLS_LowConfidence, file = 'data_derived2/RLS_LowConfidence_Species_2017-03-27.rds')
 
-RLS_19 <- RLS18_V2 %>% filter(SpeciesName %in% RLS_HighConfidence_Species$SpeciesName)         # 787,893 observations
+RLS_19 <- RLS18_V2 %>% filter(SpeciesName %in% RLS_HighConfidence_Species$SpeciesName)         # 789,910 observations
 
 
 nrow(RLS_19)
-RLS_19 %>% filter(AbundanceAdult40 != 0) %>% nrow
-length(unique(as.character(RLS_19$SiteCode)))
-length(unique(as.character(RLS_19$SpeciesName)))
-RLS_19 %>% do()
+RLS_19 %>% filter(AbundanceAdult40 != 0) %>% nrow # 98,782 presences
+length(unique(as.character(RLS_19$SiteCode)))     # 3,148 sites
+length(unique(as.character(RLS_19$SpeciesName)))  # 702
+#RLS_19 %>% do()
 
-Survey_no <- RLS %>% select(SiteCode, SurveyID) %>% unique() %>% left_join(RLS_19 %>% select(SiteCode) %>% unique(), .)
-Survey_no %>% group_by(SiteCode) %>% do(No_unique = length(unique(.$SurveyID))) %>% unnest(No_unique) %>% .$No_unique %>% mean()
+### Produce plots and models of correlations between new and old temperature metrics for Reviewers comments  ----
 
-
-### POST REVIEW aggregate survey ID *SST* data to site level and merge into object ----
-
-# Read in most recent organisng data file. 
-load(file = 'data_derived/01-organsiing-data05072018.RData')
-
+# Load in old temperatures per site. 
 OldTemperature <- as_data_frame(read.csv(file = 'data_raw/SiteTemperatureValuesRLS_04_09_2017.csv')) %>% dplyr::select(-X)
 OldTemperature$Latitude.1 <- OldTemperature$Latitude;  OldTemperature$Latitude<-NULL
 OldTemperature$Longitude.1 <- OldTemperature$Longitude;OldTemperature$Longitude<-NULL
@@ -574,16 +575,9 @@ SiteTemps_Agg <- SiteTemps_All %>% group_by(SiteCode) %>% do(MeanTemp_CoralWatch
 
 SiteTemps_Agg$SiteCode <- as.character(SiteTemps_Agg$SiteCode)
 
-RLS_19 <- left_join(RLS_19, SiteTemps_Agg)
-
-# Remove hanging objects 
-rm(CoralWatch, RLS, SiteCode_key, SiteTemps_Agg)
-
-### Produce plots and models of correlations between new and old temperature metrics ----
-
 lm_MeanTemp <- lm(MeanSiteSST_NOAA ~ MeanTemp_CoralWatch, data = SiteTemps_Agg)
-lm_MinTemp <- lm(MeanSiteWinterSST_NOAA ~ MinTemp_CoralWatch, data = SiteTemps_Agg)
-lm_MaxTemp <- lm(MeanSiteSummerSST_NOAA ~ MaxTemp_CoralWatch, data = SiteTemps_Agg)
+lm_MinTemp  <- lm(MeanSiteWinterSST_NOAA ~ MinTemp_CoralWatch, data = SiteTemps_Agg)
+lm_MaxTemp  <- lm(MeanSiteSummerSST_NOAA ~ MaxTemp_CoralWatch, data = SiteTemps_Agg)
 
 summary(lm_MeanTemp)
 summary(lm_MinTemp)
@@ -696,11 +690,44 @@ view(dfSummary(RLS_19))
 
 
 
+### Add in fine scale habitat on transects ---- 
+SiteCovariates <- read.csv(file = '/Users/caw1g15/Documents/GitHub/RLSThermalResilience/data/Site covariatesV2.csv')
+view(dfSummary(SiteCovariates))
+
+SiteCovariates2 <- SiteCovariates %>% 
+  group_by(SiteCode) %>% 
+  nest() %>% 
+  mutate(LiveCoralCover_Site = purrr::map(data, ~mean(.$LiveCoralCover, na.rm = T)), 
+         AlgalCover_Site = purrr::map(data, ~mean(.$AlgalCover, na.rm = T)), 
+         Depth_Site = purrr::map(data, ~mean(.$Depth, na.rm = T))) %>% 
+  unnest(LiveCoralCover_Site, 
+         AlgalCover_Site, 
+         Depth_Site) %>% 
+  select(-data)
+
+RLS_19 <- left_join(RLS_19, SiteCovariates2)
+
+RLS_19$AlgalCover_Site[RLS_19$AlgalCover_Site > 100] <- 100 
+RLS_19$LiveCoralCover_Site[RLS_19$LiveCoralCover_Site > 100] <- 100 
+RLS_19$LiveCoralCover_Site[RLS_19$LiveCoralCover_Site > 100] <- 100 
+
+hist(RLS_19$LiveCoralCover_Site)
+hist(RLS_19$Depth_Site)
+summary(RLS_19$Depth_Site)
+quantile(RLS_19$Depth_Site, 0.99)
+
+# Subset RLS_19 by depth.
+RLS_19 %>% select(Depth_Site, SiteCode) %>% unique() %>% filter(Depth_Site > 21) # just 23 sites 0.734355 dataset. 
+nrow(RLS_19[RLS_19$Depth_Site < quantile(RLS_19$Depth_Site, 0.99),]) - nrow(RLS_19) # removes 700 rows. 
+RLS_19 <- RLS_19[RLS_19$Depth_Site < quantile(RLS_19$Depth_Site, 0.99),]
+
+
 ### Save new file to model with ---- 
 # Save image to work with 
 rm(list = ls()[!ls() %in% c("RLS_19")])
 save.image(file = 'data_derived/01-organsiing-data24092018.RData')
-#load(file = 'data_derived/01-organsiing-data24092018.RData')
+load(file = 'data_derived/01-organsiing-data24092018.RData')
+
 
 ### ----
 
